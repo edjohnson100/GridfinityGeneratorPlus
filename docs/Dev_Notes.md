@@ -1,0 +1,20 @@
+# Dev Notes
+
+Running log of notable feature work and design decisions in this fork, kept alongside `CLAUDE.md`. Newest entries at the top.
+
+## 2026-07-14 — Palette config manager, Common settings panel, Clear Preview, GitHub setup
+
+- **Config manager**: added full save/update/load/delete for named configs per tab (Bin/Baseplate), plus per-tab Factory Reset, in the palette UI (`commandGridfinityPalette/entry.py`, `resources/palette/script.js`, `index.html`). Backed by file-per-config JSON in `commandConfig/presets/{tab}/*.json` and `ui_defaults.json` (`activeConfig` per tab).
+  - Fixed a `KeyError` where the new config `<select>` was mistakenly caught by the generic field-change listener (`#tab-bin input, #tab-bin select`) and treated as a form field, triggering backend validation for a tab named `bin-config-select`. Fix: scoped the listener to `[id^="bin."]` / `[id^="baseplate."]`.
+- **Common settings panel**: `baseWidthUnit`, `baseLengthUnit`, `xyClearance`, `magnetDiameter`, `magnetDepth` were duplicated across Bin and Baseplate configs with no way to keep them in sync. Pulled them into a single always-visible "Common settings" panel above the tabs, backed by `commandConfig/common.json` and a `common`/`update_common` action pair mirroring the per-tab pattern.
+  - Design call: kept `hasMagnetCutouts` (the on/off toggle) **per-tab** rather than folding it into Common, because Light-baseplate-type gating needs to disable baseplate's toggle independently of bin's. Only the physical magnet size moved to Common.
+  - Saved named presets never include the Common fields — they're stripped before dumping (`COMMON_FIELDS` filter in `_handle_save_as`/`_handle_update_current`).
+- **Light baseplate type gating**: user reported editing "Extra bottom thickness" and "Add connection holes" had no visible effect on Light baseplates. Root cause: intentional existing gating in `baseplateGenerator.py` (`hasExtendedBottom`/`hasSkeletonizedBottom`), not a bug — the UI just didn't communicate it. Fix was UI-only: disable + hint text, generator logic untouched. Extended the same treatment to magnet cutouts and screw holes when `plateType === 'Light'`, since those are gated the same way.
+- **Clear Preview button**: previously, canceling after "Update Preview" left a temporary preview component in the design with no clean way to remove it short of manually deleting it in the Fusion timeline. Added a third button per tab wired to the existing (already-correct) `previewState.clear_preview()`; the palette's `preview_status` message (previously an inert no-op in `script.js`) now enables/disables the button based on whether a preview is currently tracked.
+- **Debounce bug fix (found incidentally)**: `script.js` used a single shared `validateDebounceTimer` for all tabs' field validation. Two `requestValidation()` calls for different tabs within the same 200ms window would cancel each other via `clearTimeout`, silently skipping validation for one tab. This became more likely once Common-panel edits started firing `requestValidation('bin')` and `requestValidation('baseplate')` back to back. Fixed by keying the debounce timers per tab (`validateDebounceTimers`).
+- **GitHub**: repo initialized and pushed as a private repo at `github.com/edjohnson100/GridfinityGeneratorPlus` (`main` branch). `.gitignore` had been ignoring `CLAUDE.md` (likely copied from a template that treats it as personal/local) — removed that line so `CLAUDE.md` is tracked, since it's genuine project documentation.
+
+## Earlier work (not logged individually before this file existed)
+
+- Migration from the legacy two-`CommandDialog` UI (`commandCreateBin`, `commandCreateBaseplate`) to the single persistent HTML palette (`commandGridfinityPalette`). Legacy commands are unregistered but not yet deleted — see `CLAUDE.md` Architecture section for current status.
+- Secondary-button color contrast fix in the palette UI (`style.css`).
