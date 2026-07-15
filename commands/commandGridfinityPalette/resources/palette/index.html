@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
   <div id="app">
@@ -26,11 +26,13 @@
     <div class="actions secondary">
       <button type="button" data-action="edit_active_component">Edit Active Component</button>
     </div>
-    <span class="field-hint">Double-click a Gridfinity component in the browser to activate it, then click here to load it back into the palette for editing.</span>
+    <span class="field-hint">Hover over a Gridfinity component in the browser and click the radio button that appears to its right to activate it, then click here to load it back into the palette for editing.</span>
 
     <div class="tabs">
       <button class="tab-button active" data-tab="bin">Bin</button>
       <button class="tab-button" data-tab="baseplate">Baseplate</button>
+      <button class="tab-button" data-tab="optimizer">Grid Optimizer</button>
+      <button class="tab-button" data-tab="theme">Theme</button>
     </div>
 
     <div id="notification" class="notification hidden"></div>
@@ -167,8 +169,21 @@
             <option value="Light">Light</option>
             <option value="Skeletonized">Skeletonized</option>
             <option value="Full">Full</option>
+            <option value="Stackable">Stackable</option>
           </select>
         </label>
+      </details>
+
+      <details class="section" id="baseplate-stackable-fieldset" open>
+        <summary>Stacking</summary>
+        <div id="baseplate-stackable-row">
+          <label>Stack count <input type="number" step="1" min="1" id="baseplate.stackCount"></label>
+          <span class="field-error" data-error-for="stackCount"></span>
+          <label>Interface layer thickness (mm) <input type="number" step="0.05" id="baseplate.interfaceLayerThickness"></label>
+          <span class="field-error" data-error-for="interfaceLayerThickness"></span>
+          <span class="field-hint highlight" id="baseplate-interface-thickness-hint"></span>
+        </div>
+        <span class="field-hint" id="baseplate-stackable-hint"></span>
       </details>
 
       <details class="section" id="baseplate-magnet-cutouts-fieldset" open>
@@ -205,6 +220,7 @@
           <span class="field-hint" id="baseplate-extra-bottom-thickness-hint"></span>
         </div>
         <label>Clearance between baseplate and bin (mm) <input type="number" step="0.05" id="baseplate.binZClearance"></label>
+        <span class="field-hint highlight" id="baseplate-bin-z-clearance-stack-hint"></span>
         <div id="baseplate-connection-holes-row">
           <label><input type="checkbox" id="baseplate.hasConnectionHoles"> Add connection holes</label>
           <label>Connection hole diameter (mm) <input type="number" step="0.05" id="baseplate.connectionHoleDiameter"></label>
@@ -240,7 +256,103 @@
         <button type="button" class="clear-preview-button" data-action="clear_preview" data-tab="baseplate" disabled>Clear Preview</button>
       </div>
     </div>
+
+    <div id="tab-optimizer" class="tab-panel">
+      <details class="section" open>
+        <summary>Search range</summary>
+        <label>Min grid size (mm) <input type="number" step="1" min="1" id="optimizer.minSize"></label>
+        <label>Max grid size (mm) <input type="number" step="1" min="1" id="optimizer.maxSize"></label>
+        <span class="field-error" data-error-for="minSize"></span>
+        <span class="field-error" data-error-for="maxSize"></span>
+        <label><input type="checkbox" id="optimizer.allowHalfBins"> Allow half-size bins</label>
+        <span class="field-hint">Credits a half-cell when an opening's leftover space is at least half the grid pitch. Unchecking this can change which grid size is recommended.</span>
+        <label>Optimize for
+          <select id="optimizer.priority">
+            <option value="widthOnly">Width only</option>
+            <option value="width">Width priority</option>
+            <option value="balanced">Balanced</option>
+            <option value="depth">Depth priority</option>
+            <option value="depthOnly">Depth only</option>
+          </select>
+        </label>
+        <span class="field-hint">Priority weighs one dimension's leftover space more heavily when ranking grid sizes. "Only" ignores the other dimension's leftover space entirely (e.g. depth waste at the back of a drawer you don't care about).</span>
+        <label><input type="checkbox" id="optimizer.compareStandard"> Compare to standard 42mm grid</label>
+      </details>
+
+      <details class="section" open>
+        <summary>Dimensions</summary>
+        <span class="field-error" data-error-for="items"></span>
+        <table id="optimizer-items-table">
+          <thead><tr><th>Description</th><th>Width (mm)</th><th>Depth (mm)</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <button type="button" id="optimizer-items-add">Add dimension</button>
+      </details>
+
+      <details class="section" open>
+        <summary>Saved sets</summary>
+        <div class="config-active" id="optimizer-config-active"></div>
+        <label>Saved set
+          <select id="optimizer-config-select"></select>
+        </label>
+        <div class="actions secondary">
+          <button type="button" data-config-action="load" data-tab="optimizer">Load</button>
+          <button type="button" data-config-action="delete" data-tab="optimizer">Delete</button>
+        </div>
+        <div class="actions secondary">
+          <button type="button" data-config-action="save_as" data-tab="optimizer">Save As&hellip;</button>
+          <button type="button" id="optimizer-config-update" data-config-action="update_current" data-tab="optimizer">Update Current</button>
+        </div>
+        <div class="actions secondary">
+          <button type="button" data-action="factory_reset" data-tab="optimizer">Factory Reset</button>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button type="button" data-action="optimize" data-tab="optimizer">Calculate</button>
+      </div>
+
+      <div id="optimizer-results" class="computed hidden">
+        <details class="section" open>
+          <summary>Best fit</summary>
+          <div id="optimizer-results-headline" class="computed"></div>
+          <table id="optimizer-results-table">
+            <thead><tr><th>Description</th><th>Type</th><th>Dimension (mm)</th><th>Fit (full + half)</th><th>Leftover (mm)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </details>
+        <details class="section hidden" id="optimizer-standard-section" open>
+          <summary>Standard 42mm grid</summary>
+          <div id="optimizer-standard-headline" class="computed"></div>
+          <table id="optimizer-standard-table">
+            <thead><tr><th>Description</th><th>Type</th><th>Dimension (mm)</th><th>Fit (full + half)</th><th>Leftover (mm)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </details>
+      </div>
+    </div>
+
+    <div id="tab-theme" class="tab-panel">
+      <details class="section" open>
+        <summary>Theme</summary>
+        <label>Theme
+          <select id="theme.name">
+            <option value="System">System (Default)</option>
+            <option value="Light">Light</option>
+            <option value="Dark">Dark</option>
+            <option value="Midnight">Midnight</option>
+            <option value="Sandstone">Sandstone</option>
+          </select>
+        </label>
+        <span class="field-hint">"System" follows your OS's light/dark setting automatically.</span>
+        <div class="actions secondary">
+          <button type="button" id="theme-import">Import theme.json&hellip;</button>
+          <input type="file" id="theme-import-input" accept="application/json,.json" class="hidden">
+        </div>
+        <span class="field-hint" id="theme-import-hint"></span>
+      </details>
+    </div>
   </div>
-  <script src="script.js?v=2"></script>
+  <script src="script.js?v=12"></script>
 </body>
 </html>

@@ -38,13 +38,13 @@ def validate_bin(form: dict) -> dict:
     compartments = get('compartments', [])
 
     if not baseWidthUnit > 1:
-        fieldErrors['baseWidthUnit'] = 'Must be greater than 1mm'
+        fieldErrors['baseWidthUnit'] = 'Must be greater than 10mm'
     if not baseLengthUnit > 1:
-        fieldErrors['baseLengthUnit'] = 'Must be greater than 1mm'
+        fieldErrors['baseLengthUnit'] = 'Must be greater than 10mm'
     if not heightUnit > 0.5:
-        fieldErrors['heightUnit'] = 'Must be greater than 0.5mm'
+        fieldErrors['heightUnit'] = 'Must be greater than 5mm'
     if not (0.01 <= xyClearance <= 0.05):
-        fieldErrors['xyClearance'] = 'Must be within [0.01, 0.05]mm'
+        fieldErrors['xyClearance'] = 'Must be within [0.1, 0.5]mm'
     if not binWidth > 0:
         fieldErrors['binWidth'] = 'Must be greater than 0'
     if not binLength > 0:
@@ -52,11 +52,11 @@ def validate_bin(form: dict) -> dict:
     if not binHeight >= 1:
         fieldErrors['binHeight'] = 'Must be at least 1'
     if not (0.04 <= wallThickness <= 0.2):
-        fieldErrors['wallThickness'] = 'Must be within [0.04, 0.2]mm'
+        fieldErrors['wallThickness'] = 'Must be within [0.4, 2]mm'
 
     if generateBase:
         if hasScrewHoles and not screwDiameter > 0.1:
-            fieldErrors['screwDiameter'] = 'Must be greater than 0.1mm'
+            fieldErrors['screwDiameter'] = 'Must be greater than 1mm'
         if hasMagnetCutouts and not screwDiameter < magnetDiameter:
             fieldErrors['magnetDiameter'] = 'Must be greater than screw diameter'
         if not magnetDepth > 0:
@@ -131,13 +131,16 @@ def validate_baseplate(form: dict) -> dict:
     hasConnectionHoles = bool(get('hasConnectionHoles'))
     connectionHoleDiameter = float(get('connectionHoleDiameter', 0))
     extraBottomThickness = float(get('extraBottomThickness', 0))
+    plateType = get('plateType')
+    stackCount = int(get('stackCount', 1))
+    interfaceLayerThickness = float(get('interfaceLayerThickness', 0))
 
     if not baseWidthUnit >= 1:
-        fieldErrors['baseWidthUnit'] = 'Must be at least 1mm'
+        fieldErrors['baseWidthUnit'] = 'Must be at least 10mm'
     if not baseLengthUnit >= 1:
-        fieldErrors['baseLengthUnit'] = 'Must be at least 1mm'
+        fieldErrors['baseLengthUnit'] = 'Must be at least 10mm'
     if not (0.01 <= xyClearance <= 0.05):
-        fieldErrors['xyClearance'] = 'Must be within [0.01, 0.05]mm'
+        fieldErrors['xyClearance'] = 'Must be within [0.1, 0.5]mm'
     if not plateWidth > 0:
         fieldErrors['plateWidth'] = 'Must be greater than 0'
     if not plateLength > 0:
@@ -145,21 +148,62 @@ def validate_baseplate(form: dict) -> dict:
 
     if hasMagnetCutouts:
         if not (0 < magnetDiameter <= 1):
-            fieldErrors['magnetDiameter'] = 'Must be within (0, 1]mm'
+            fieldErrors['magnetDiameter'] = 'Must be within (0, 10]mm'
         if not magnetDepth > 0:
             fieldErrors['magnetDepth'] = 'Must be greater than 0'
 
     if hasScrewHoles:
         if not (0 < screwDiameter <= 1):
-            fieldErrors['screwDiameter'] = 'Must be within (0, 1]mm'
+            fieldErrors['screwDiameter'] = 'Must be within (0, 10]mm'
         if not (screwHeadDiameter > screwDiameter and screwHeadDiameter <= 1.5):
-            fieldErrors['screwHeadDiameter'] = 'Must be greater than screw diameter and at most 1.5mm'
+            fieldErrors['screwHeadDiameter'] = 'Must be greater than screw diameter and at most 15mm'
 
     if hasConnectionHoles and not (0 < connectionHoleDiameter <= 0.5):
-        fieldErrors['connectionHoleDiameter'] = 'Must be within (0, 0.5]mm'
+        fieldErrors['connectionHoleDiameter'] = 'Must be within (0, 5]mm'
 
     if not extraBottomThickness > 0:
         fieldErrors['extraBottomThickness'] = 'Must be greater than 0'
+
+    if plateType == 'Stackable':
+        if not stackCount >= 1:
+            fieldErrors['stackCount'] = 'Must be at least 1'
+        if stackCount > 1 and not interfaceLayerThickness > 0:
+            fieldErrors['interfaceLayerThickness'] = 'Must be greater than 0'
+
+    return {
+        'valid': len(fieldErrors) == 0,
+        'fieldErrors': fieldErrors,
+        'computed': {},
+    }
+
+
+def validate_optimizer(form: dict) -> dict:
+    fieldErrors = {}
+
+    def get(key, default=None):
+        return form.get(key, default)
+
+    minSize = float(get('minSize', 0))
+    maxSize = float(get('maxSize', 0))
+    priority = get('priority', 'balanced')
+    items = get('items', [])
+
+    if not minSize > 0:
+        fieldErrors['minSize'] = 'Must be greater than 0'
+    if not maxSize > minSize:
+        fieldErrors['maxSize'] = 'Must be greater than min size'
+    if priority not in ('widthOnly', 'width', 'balanced', 'depth', 'depthOnly'):
+        fieldErrors['priority'] = 'Must be widthOnly, width, balanced, depth, or depthOnly'
+
+    if not items:
+        fieldErrors['items'] = 'Add at least one dimension'
+    for i, row in enumerate(items):
+        width = float(row.get('width', 0))
+        depth = float(row.get('depth', 0))
+        if not width > 0:
+            fieldErrors[f'items[{i}].width'] = 'Must be greater than 0'
+        if not depth > 0:
+            fieldErrors[f'items[{i}].depth'] = 'Must be greater than 0'
 
     return {
         'valid': len(fieldErrors) == 0,

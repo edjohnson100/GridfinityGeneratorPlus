@@ -4,9 +4,11 @@ const CM_TO_MM = 10;
 const MM_FIELDS = {
     common: ['baseWidthUnit', 'baseLengthUnit', 'xyClearance', 'magnetDiameter', 'magnetDepth'],
     bin: ['heightUnit', 'wallThickness', 'scoopMaxRadius', 'tabWidth', 'screwDiameter'],
-    baseplate: ['screwDiameter', 'screwHeadDiameter', 'paddingLeft', 'paddingTop', 'paddingRight', 'paddingBottom', 'extraBottomThickness', 'binZClearance', 'connectionHoleDiameter'],
+    baseplate: ['screwDiameter', 'screwHeadDiameter', 'paddingLeft', 'paddingTop', 'paddingRight', 'paddingBottom', 'extraBottomThickness', 'binZClearance', 'connectionHoleDiameter', 'interfaceLayerThickness'],
+    optimizer: ['minSize', 'maxSize'],
 };
 const COMPARTMENT_MM_FIELDS = ['depth'];
+const OPTIMIZER_ITEM_MM_FIELDS = ['width', 'depth'];
 
 function cmToMm(v) {
     return Math.round(v * CM_TO_MM * 1000) / 1000;
@@ -31,6 +33,15 @@ function cmFormToDisplayForm(tab, form) {
             return r;
         });
     }
+    if (tab === 'optimizer' && Array.isArray(out.items)) {
+        out.items = out.items.map(row => {
+            const r = Object.assign({}, row);
+            for (const field of OPTIMIZER_ITEM_MM_FIELDS) {
+                if (typeof r[field] === 'number') r[field] = cmToMm(r[field]);
+            }
+            return r;
+        });
+    }
     return out;
 }
 
@@ -45,6 +56,15 @@ function displayFormToCmForm(tab, form) {
         out.compartments = out.compartments.map(row => {
             const r = Object.assign({}, row);
             for (const field of COMPARTMENT_MM_FIELDS) {
+                if (typeof r[field] === 'number') r[field] = mmToCm(r[field]);
+            }
+            return r;
+        });
+    }
+    if (tab === 'optimizer' && Array.isArray(out.items)) {
+        out.items = out.items.map(row => {
+            const r = Object.assign({}, row);
+            for (const field of OPTIMIZER_ITEM_MM_FIELDS) {
                 if (typeof r[field] === 'number') r[field] = mmToCm(r[field]);
             }
             return r;
@@ -78,12 +98,17 @@ const state = {
             hasSidePadding: false, paddingLeft: 0, paddingTop: 0, paddingRight: 0, paddingBottom: 0,
             extraBottomThickness: 0.64, binZClearance: 0.05,
             hasConnectionHoles: false, connectionHoleDiameter: 0.32,
+            stackCount: 1, interfaceLayerThickness: 0.04,
         },
+        optimizer: {
+            minSize: 3.0, maxSize: 7.5, allowHalfBins: true, compareStandard: false, priority: 'balanced', items: [],
+        },
+        theme: { name: 'System' },
     },
-    fieldErrors: { bin: {}, baseplate: {} },
-    valid: { bin: true, baseplate: true },
-    configs: { bin: [], baseplate: [] },
-    activeConfig: { bin: null, baseplate: null },
+    fieldErrors: { bin: {}, baseplate: {}, optimizer: {} },
+    valid: { bin: true, baseplate: true, optimizer: true },
+    configs: { bin: [], baseplate: [], optimizer: [] },
+    activeConfig: { bin: null, baseplate: null, optimizer: null },
 };
 
 const validateDebounceTimers = {};
@@ -116,6 +141,8 @@ window.fusionJavaScriptHandler = {
                 onPreviewStatus(parsed);
             } else if (action === 'config_list') {
                 onConfigList(parsed);
+            } else if (action === 'optimizer_result') {
+                renderOptimizerResults(parsed);
             }
             return 'OK';
         } catch (e) {
@@ -128,6 +155,16 @@ window.fusionJavaScriptHandler = {
 function onSetState(payload) {
     const tab = payload.tab;
     const cmForm = payload.form;
+    if (tab === 'theme') {
+        state.forms.theme = cmForm;
+        Object.entries(payload.importedThemes || {}).forEach(([id, vars]) => {
+            importedThemes[id] = vars;
+            ensureThemeOption(id, `${id} (imported)`);
+        });
+        renderForm('theme');
+        applyTheme(cmForm.name, importedThemes[cmForm.name] || null);
+        return;
+    }
     state.forms[tab] = cmForm;
     renderForm(tab);
     if (payload.source === 'factory_reset' || payload.source === 'reset') {
@@ -246,11 +283,15 @@ function readFormFromDom(tab) {
     if (tab === 'bin') {
         form.compartments = readCompartmentsFromDom();
     }
+    if (tab === 'optimizer') {
+        form.items = readOptimizerItemsFromDom();
+    }
     return form;
 }
 
 function writeFormToDom(tab, displayForm) {
     document.querySelectorAll(`[id^="${tab}."]`).forEach(el => {
+        if (el === document.activeElement) return;
         const field = el.id.slice(tab.length + 1);
         if (!(field in displayForm)) return;
         const value = displayForm[field];
@@ -266,6 +307,9 @@ function writeFormToDom(tab, displayForm) {
     }
     if (tab === 'baseplate') {
         updateBaseplateConditionalVisibility();
+    }
+    if (tab === 'optimizer') {
+        renderOptimizerItemsTable(displayForm.items || []);
     }
 }
 
@@ -400,12 +444,128 @@ document.getElementById('bin.compartmentsGridType').addEventListener('change', (
     requestValidation('bin');
 });
 
+// ---- Grid Optimizer: dimension list ----
+function readOptimizerItemsFromDom() {
+    const rows = [];
+    document.querySelectorAll('#optimizer-items-table tbody tr').forEach(tr => {
+        rows.push({
+            description: tr.querySelector('[data-field="description"]').value,
+            width: parseFloat(tr.querySelector('[data-field="width"]').value),
+            depth: parseFloat(tr.querySelector('[data-field="depth"]').value),
+        });
+    });
+    return rows;
+}
+
+function renderOptimizerItemsTable(rows) {
+    const tbody = document.querySelector('#optimizer-items-table tbody');
+    tbody.innerHTML = '';
+    rows.forEach((row, index) => {
+        const tr = document.createElement('tr');
+        tr.dataset.index = String(index);
+
+        const descTd = document.createElement('td');
+        const descInput = document.createElement('input');
+        descInput.type = 'text';
+        descInput.dataset.field = 'description';
+        descInput.value = row.description || '';
+        descInput.addEventListener('input', () => {
+            requestValidation('optimizer');
+        });
+        descTd.appendChild(descInput);
+        tr.appendChild(descTd);
+
+        ['width', 'depth'].forEach(field => {
+            const td = document.createElement('td');
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.step = '0.1';
+            input.dataset.field = field;
+            input.value = row[field];
+            input.addEventListener('input', () => {
+                requestValidation('optimizer');
+            });
+            td.appendChild(input);
+            tr.appendChild(td);
+        });
+
+        const actionTd = document.createElement('td');
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = 'x';
+        removeBtn.addEventListener('click', () => {
+            const items = readOptimizerItemsFromDom();
+            items.splice(index, 1);
+            renderOptimizerItemsTable(items);
+            requestValidation('optimizer');
+        });
+        actionTd.appendChild(removeBtn);
+        tr.appendChild(actionTd);
+
+        tbody.appendChild(tr);
+    });
+}
+
+document.getElementById('optimizer-items-add').addEventListener('click', () => {
+    const items = readOptimizerItemsFromDom();
+    items.push({ description: '', width: 100, depth: 100 });
+    renderOptimizerItemsTable(items);
+    requestValidation('optimizer');
+});
+
+function formatWasteSummary(obj, priority) {
+    if (priority === 'widthOnly') {
+        return `width leftover: ${obj.widthWasteMm} mm (depth ignored)`;
+    }
+    if (priority === 'depthOnly') {
+        return `depth leftover: ${obj.depthWasteMm} mm (width ignored)`;
+    }
+    return `total leftover: ${obj.totalWasteMm} mm (width ${obj.widthWasteMm} / depth ${obj.depthWasteMm})`;
+}
+
+function renderFitRow(item) {
+    const tr = document.createElement('tr');
+    [item.description, item.type, item.dimensionMm, `${item.full} + ${item.half} half`, item.wasteMm].forEach(value => {
+        const td = document.createElement('td');
+        td.textContent = value;
+        tr.appendChild(td);
+    });
+    return tr;
+}
+
+function renderOptimizerResults(payload) {
+    const results = document.getElementById('optimizer-results');
+    if (payload.optimalSizeMm === null || payload.optimalSizeMm === undefined) {
+        results.classList.add('hidden');
+        return;
+    }
+    results.classList.remove('hidden');
+
+    document.getElementById('optimizer-results-headline').textContent =
+        `Optimal grid size: ${payload.optimalSizeMm} mm — ${formatWasteSummary(payload, payload.priority)}`;
+    const tbody = document.querySelector('#optimizer-results-table tbody');
+    tbody.innerHTML = '';
+    (payload.items || []).forEach(item => tbody.appendChild(renderFitRow(item)));
+
+    const standardSection = document.getElementById('optimizer-standard-section');
+    if (payload.standard) {
+        standardSection.classList.remove('hidden');
+        document.getElementById('optimizer-standard-headline').textContent =
+            `Standard ${payload.standard.sizeMm} mm grid — ${formatWasteSummary(payload.standard, payload.priority)}`;
+        const standardTbody = document.querySelector('#optimizer-standard-table tbody');
+        standardTbody.innerHTML = '';
+        (payload.standard.items || []).forEach(item => standardTbody.appendChild(renderFitRow(item)));
+    } else {
+        standardSection.classList.add('hidden');
+    }
+}
+
 // ---- Baseplate: extra bottom thickness and connection holes are only ----
 // ---- meaningful for certain plate types; gray them out otherwise.    ----
 function updateBaseplateConditionalVisibility() {
     const plateType = document.getElementById('baseplate.plateType').value;
 
-    const hasExtendedBottom = plateType !== 'Light';
+    const hasExtendedBottom = plateType !== 'Light' && plateType !== 'Stackable';
     const extraBottomThicknessInput = document.getElementById('baseplate.extraBottomThickness');
     extraBottomThicknessInput.disabled = !hasExtendedBottom;
     document.getElementById('baseplate-extra-bottom-thickness-hint').textContent =
@@ -434,9 +594,31 @@ function updateBaseplateConditionalVisibility() {
     document.getElementById('baseplate-screw-holes-hint').textContent =
         hasExtendedBottom ? '' : 'Only applies when baseplate type is Full or Skeletonized';
     document.getElementById('baseplate-screw-holes-fieldset').classList.toggle('disabled-row', !hasExtendedBottom);
+
+    const isStackable = plateType === 'Stackable';
+    const stackCount = parseInt(document.getElementById('baseplate.stackCount').value, 10) || 1;
+    document.getElementById('baseplate-stackable-fieldset').classList.toggle('disabled-row', !isStackable);
+    document.getElementById('baseplate.stackCount').disabled = !isStackable;
+    document.getElementById('baseplate-stackable-hint').textContent =
+        isStackable ? '' : 'Only applies when baseplate type is Stackable';
+
+    const interfaceLayerThicknessInput = document.getElementById('baseplate.interfaceLayerThickness');
+    interfaceLayerThicknessInput.disabled = !isStackable || stackCount <= 1;
+    document.getElementById('baseplate-interface-thickness-hint').textContent =
+        !isStackable ? '' : (stackCount <= 1
+            ? 'Only applies when Stack count is greater than 1'
+            : 'For best results, use 1x or 2x the layer height you plan to print the baseplates with (e.g. 0.3 or 0.6mm for a 0.3mm layer height, 0.2 or 0.4mm for a 0.2mm layer height)');
+
+    document.getElementById('baseplate-bin-z-clearance-stack-hint').textContent =
+        isStackable ? 'For best print results, a clearance of at least 1-1.5mm is recommended for stackable baseplates' : '';
 }
 
 document.getElementById('baseplate.plateType').addEventListener('change', () => {
+    updateBaseplateConditionalVisibility();
+    requestValidation('baseplate');
+});
+
+document.getElementById('baseplate.stackCount').addEventListener('input', () => {
     updateBaseplateConditionalVisibility();
     requestValidation('baseplate');
 });
@@ -457,7 +639,7 @@ document.querySelectorAll('.tab-button').forEach(btn => {
 });
 
 // ---- Field change -> debounced validate ----
-document.querySelectorAll('#tab-bin input[id^="bin."], #tab-bin select[id^="bin."], #tab-baseplate input[id^="baseplate."], #tab-baseplate select[id^="baseplate."]').forEach(el => {
+document.querySelectorAll('#tab-bin input[id^="bin."], #tab-bin select[id^="bin."], #tab-baseplate input[id^="baseplate."], #tab-baseplate select[id^="baseplate."], #tab-optimizer input[id^="optimizer."], #tab-optimizer select[id^="optimizer."]').forEach(el => {
     const evt = (el.tagName === 'SELECT' || el.type === 'checkbox') ? 'change' : 'input';
     el.addEventListener(evt, () => {
         const tab = el.id.split('.')[0];
@@ -553,6 +735,109 @@ document.querySelectorAll('button[data-config-action]').forEach(btn => {
     });
 });
 
+// ---- Theme (Theme Designer Pro standard: CSS vars + data-theme attribute) ----
+const importedThemes = {};
+let systemThemeMediaQuery = null;
+
+function systemThemeListener(e) {
+    if (e.matches) {
+        document.documentElement.setAttribute('data-theme', 'Dark');
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+    }
+}
+
+function watchSystemTheme() {
+    if (!systemThemeMediaQuery) {
+        systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        systemThemeMediaQuery.addEventListener('change', systemThemeListener);
+    }
+    systemThemeListener(systemThemeMediaQuery);
+}
+
+function stopWatchingSystemTheme() {
+    if (systemThemeMediaQuery) {
+        systemThemeMediaQuery.removeEventListener('change', systemThemeListener);
+        systemThemeMediaQuery = null;
+    }
+}
+
+function injectCustomTheme(name, vars) {
+    let styleTag = document.getElementById('dynamic-theme-overrides');
+    if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'dynamic-theme-overrides';
+        document.head.appendChild(styleTag);
+    }
+    const decls = Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ');
+    styleTag.textContent = `:root[data-theme="${name}"] { ${decls} }`;
+}
+
+function applyTheme(name, customVars) {
+    if (customVars) {
+        injectCustomTheme(name, customVars);
+    }
+    if (name === 'System') {
+        watchSystemTheme();
+    } else {
+        stopWatchingSystemTheme();
+        if (name && name !== 'Light') {
+            document.documentElement.setAttribute('data-theme', name);
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+    }
+}
+
+function ensureThemeOption(name, label) {
+    const select = document.getElementById('theme.name');
+    let opt = Array.from(select.options).find(o => o.value === name);
+    if (!opt) {
+        opt = document.createElement('option');
+        opt.value = name;
+        select.appendChild(opt);
+    }
+    opt.textContent = label || name;
+}
+
+document.getElementById('theme.name').addEventListener('change', () => {
+    const name = document.getElementById('theme.name').value;
+    state.forms.theme = { name };
+    applyTheme(name, importedThemes[name] || null);
+    sendToFusion('update_theme', { form: state.forms.theme });
+    document.getElementById('theme-import-hint').textContent = '';
+});
+
+document.getElementById('theme-import').addEventListener('click', () => {
+    document.getElementById('theme-import-input').click();
+});
+
+document.getElementById('theme-import-input').addEventListener('change', (evt) => {
+    const file = evt.target.files && evt.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const data = JSON.parse(reader.result);
+            if (!data || !data.id || !data.vars) {
+                throw new Error('Missing "id" or "vars"');
+            }
+            importedThemes[data.id] = data.vars;
+            ensureThemeOption(data.id, `${data.id} (imported)`);
+            document.getElementById('theme.name').value = data.id;
+            state.forms.theme = { name: data.id };
+            applyTheme(data.id, data.vars);
+            sendToFusion('save_imported_theme', { id: data.id, vars: data.vars });
+            sendToFusion('update_theme', { form: state.forms.theme });
+            document.getElementById('theme-import-hint').textContent = `Imported "${data.id}"`;
+        } catch (e) {
+            document.getElementById('theme-import-hint').textContent = 'Could not read that file — expected a Theme Designer Pro .theme.json export';
+        }
+    };
+    reader.readAsText(file);
+    evt.target.value = '';
+});
+
 // ---- Bridge readiness ----
 function waitForFusionBridge(retries = 40) {
     if (window.adsk && window.adsk.fusionSendData) {
@@ -567,6 +852,10 @@ function waitForFusionBridge(retries = 40) {
 renderForm('common');
 renderForm('bin');
 renderForm('baseplate');
+renderForm('optimizer');
+renderForm('theme');
+applyTheme(state.forms.theme.name, null);
 renderConfigManager('bin');
 renderConfigManager('baseplate');
+renderConfigManager('optimizer');
 waitForFusionBridge();

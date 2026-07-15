@@ -3,6 +3,7 @@ import os
 import json
 
 from ...lib import configUtils
+from ...lib import appConfig
 from ...lib import fusion360utils as futil
 from ... import config
 from ...lib.gridfinityUtils import const
@@ -11,6 +12,8 @@ from ...lib.ui.unsupportedDesignTypeException import UnsupportedDesignTypeExcept
 from . import generation
 from . import validation
 from . import previewState
+from . import optimizer
+from .optimizerInputState import OptimizerInputState
 
 app = adsk.core.Application.get()
 ui = app.userInterface
@@ -29,7 +32,7 @@ CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'c
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
 
 PALETTE_TITLE = 'Gridfinity Generator'
-PALETTE_VERSION = 2
+PALETTE_VERSION = 13
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Local list of event handlers for the command button.
@@ -82,16 +85,37 @@ DEFAULT_BASEPLATE = {
     'binZClearance': const.BASEPLATE_BIN_Z_CLEARANCE,
     'hasConnectionHoles': False,
     'connectionHoleDiameter': const.DIMENSION_PLATE_CONNECTION_SCREW_HOLE_DIAMETER,
+    'stackCount': 1,
+    'interfaceLayerThickness': const.BASEPLATE_STACK_INTERFACE_THICKNESS,
+}
+
+# The Grid Optimizer tab is a pure-Python advisory calculator (no Fusion
+# geometry involved), but its dimension list uses the same named-preset
+# save/load/delete system as Bin and Baseplate (e.g. a "Kitchen Drawers" set).
+DEFAULT_OPTIMIZER = {
+    'minSize': 3.0,
+    'maxSize': 7.5,
+    'allowHalfBins': True,
+    'compareStandard': False,
+    'priority': 'balanced',
+    'items': [],
 }
 
 DEFAULTS_BY_TAB = {
     'bin': DEFAULT_BIN,
     'baseplate': DEFAULT_BASEPLATE,
+    'optimizer': DEFAULT_OPTIMIZER,
 }
 
 # Fields shared between the Bin and Baseplate tabs (grid pitch + magnet size)
 # so a custom baseplate grid and the bins that go in it always stay compatible.
 COMMON_FIELDS = ['baseWidthUnit', 'baseLengthUnit', 'xyClearance', 'magnetDiameter', 'magnetDepth']
+
+# Bin/Baseplate presets snapshot the Common panel values in effect when saved,
+# and restore them (updating the live shared panel) when loaded, so a preset
+# always reproduces the exact grid it was designed for. The Optimizer tab has
+# no relationship to the physical grid, so its presets never touch this.
+TABS_WITH_SHARED_COMMON = ('bin', 'baseplate')
 
 DEFAULT_COMMON = {
     'baseWidthUnit': const.DIMENSION_DEFAULT_WIDTH_UNIT,
@@ -104,12 +128,70 @@ DEFAULT_COMMON = {
 VALIDATE_BY_TAB = {
     'bin': validation.validate_bin,
     'baseplate': validation.validate_baseplate,
+    'optimizer': validation.validate_optimizer,
 }
 
 
 def getErrorMessage():
     stackTrace = traceback.format_exc()
     return f'An unknown error occurred, please validate your inputs and try again:\n{stackTrace}'
+
+
+# The palette's remembered on-screen size/position/docking, stored in the
+# add-in-wide GGPlus_config.json (via lib/appConfig.py) rather than anything
+# under commandGridfinityPalette/commandConfig/, since it's not tied to a tab
+# or preset. Fusion's Palette has no move/resize event, so this is captured
+# at the two points a palette actually goes away: the user closing it, and
+# the add-in stopping.
+PALETTE_GEOMETRY_KEY = 'paletteGeometry'
+DEFAULT_PALETTE_WIDTH = 420
+DEFAULT_PALETTE_HEIGHT = 700
+DEFAULT_PALETTE_DOCKING_STATE = int(adsk.core.PaletteDockingStates.PaletteDockStateRight)
+
+
+def _load_palette_geometry() -> dict:
+    geometry = appConfig.load().get(PALETTE_GEOMETRY_KEY, {})
+    return {
+        'width': geometry.get('width', DEFAULT_PALETTE_WIDTH),
+        'height': geometry.get('height', DEFAULT_PALETTE_HEIGHT),
+        'left': geometry.get('left'),
+        'top': geometry.get('top'),
+        'dockingState': geometry.get('dockingState', DEFAULT_PALETTE_DOCKING_STATE),
+    }
+
+
+def _save_palette_geometry(palette: adsk.core.Palette):
+    try:
+        appConfig.update({PALETTE_GEOMETRY_KEY: {
+            'width': palette.width,
+            'height': palette.height,
+            'left': palette.left,
+            'top': palette.top,
+            'dockingState': int(palette.dockingState),
+        }})
+    except Exception:
+        futil.log(f'{CMD_NAME} failed to save palette geometry:\n{traceback.format_exc()}')
+
+
+# The Theme tab's selection (Theme Designer Pro standard: CSS vars + data-theme
+# attribute, applied entirely client-side in script.js). Python only persists
+# the active theme's name, same pattern as palette geometry above -- the actual
+# CSS variables for any imported (non-built-in) theme live in
+# appConfig.load_imported_themes()/save_imported_theme(), keyed by theme id, so
+# every theme ever imported survives a restart, not just whichever was active.
+THEME_CONFIG_KEY = 'theme'
+DEFAULT_THEME = {'name': 'System'}
+
+
+def _load_theme() -> dict:
+    theme = appConfig.load().get(THEME_CONFIG_KEY, {})
+    return {'name': theme.get('name', DEFAULT_THEME['name'])}
+
+
+def _save_theme(form: dict):
+    appConfig.update({THEME_CONFIG_KEY: {
+        'name': form.get('name', DEFAULT_THEME['name']),
+    }})
 
 
 # Executed when add-in is run.
@@ -151,6 +233,7 @@ def stop():
 
     palette = ui.palettes.itemById(config.PALETTE_ID)
     if palette:
+        _save_palette_geometry(palette)
         palette.deleteMe()
 
     global _handlers
@@ -173,14 +256,18 @@ def open_palette():
     html_path = os.path.join(SCRIPT_DIR, 'resources', 'palette', 'index.html')
     url = 'file:///' + html_path.replace('\\', '/') + f'?v={PALETTE_VERSION}'
 
+    geometry = _load_palette_geometry()
+
     palette = ui.palettes.add(
         config.PALETTE_ID, PALETTE_TITLE, url,
         True,
         True,
         True,
-        420, 700,
+        geometry['width'], geometry['height'],
     )
-    palette.dockingState = adsk.core.PaletteDockingStates.PaletteDockStateRight
+    palette.dockingState = geometry['dockingState']
+    if geometry['left'] is not None and geometry['top'] is not None:
+        palette.setPosition(geometry['left'], geometry['top'])
 
     on_html_event = HTMLEventHandler()
     palette.incomingFromHTML.add(on_html_event)
@@ -199,6 +286,27 @@ def _ensure_safe_to_mutate():
     activeCmd = ui.activeCommand
     if activeCmd and activeCmd != 'SelectCommand':
         return False, 'Please finish or cancel the active command before generating or previewing.'
+    return True, ''
+
+
+def _ensure_hybrid_design_intent():
+    # Generate (not Preview) requires Hybrid design intent -- it's what lets every
+    # generated component carry its own settings as a document attribute (see
+    # generation.GENERATED_FORM_ATTR_*), so a saved file can be reopened, shared, or
+    # revisited months later and still be editable via "Edit Active Component". The
+    # palette stays open across document tabs, so this is checked at Generate time
+    # rather than once on palette open -- the user could switch from a Hybrid to a
+    # Part/Assembly design mid-session without closing the palette.
+    des = adsk.fusion.Design.cast(app.activeProduct)
+    if des is None:
+        return False, 'No active Fusion design.'
+    if des.designIntent != adsk.fusion.DesignIntentTypes.HybridDesignIntentType:
+        return False, (
+            'Generate requires Hybrid design intent (Document Settings → Design → Hybrid). '
+            'This is what lets each generated component remember its own settings, so you can '
+            'revisit or share your design later. Switch to Hybrid Design and click Generate again '
+            '— your current field values are unaffected.'
+        )
     return True, ''
 
 
@@ -308,13 +416,28 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                     'form': _load_common(),
                     'source': 'defaults',
                 })
-                for t in ('bin', 'baseplate'):
+                for t in ('bin', 'baseplate', 'optimizer'):
                     _send(palette, 'set_state', {
                         'tab': t,
                         'form': _get_tab_form(t),
                         'source': 'defaults',
                     })
                     _send_config_list(palette, t)
+                _send(palette, 'set_state', {
+                    'tab': 'theme',
+                    'form': _load_theme(),
+                    'importedThemes': appConfig.load_imported_themes(),
+                    'source': 'defaults',
+                })
+
+            elif action == 'update_theme':
+                _save_theme(form)
+
+            elif action == 'save_imported_theme':
+                themeId = data.get('id')
+                themeVars = data.get('vars')
+                if themeId and isinstance(themeVars, dict):
+                    appConfig.save_imported_theme(themeId, themeVars)
 
             elif action == 'update_common':
                 _save_common(form)
@@ -323,6 +446,9 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                     'form': _load_common(),
                     'source': 'update_common',
                 })
+
+            elif action == 'optimize':
+                self._handle_optimize(palette, form)
 
             elif action == 'validate':
                 result = VALIDATE_BY_TAB[tab](form)
@@ -383,7 +509,7 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
         except ValueError:
             _send(palette, 'notification', {'type': 'error', 'message': 'Enter a name for the config'})
             return
-        saveForm = {k: v for k, v in form.items() if k not in COMMON_FIELDS}
+        saveForm = dict(form) if tab in TABS_WITH_SHARED_COMMON else {k: v for k, v in form.items() if k not in COMMON_FIELDS}
         configUtils.dumpJsonConfig(_config_path(tab, name), saveForm)
         _set_active_config_name(tab, name)
         _send_config_list(palette, tab)
@@ -394,7 +520,7 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
         if not active:
             _send(palette, 'notification', {'type': 'error', 'message': 'No active config to update, use Save As instead'})
             return
-        saveForm = {k: v for k, v in form.items() if k not in COMMON_FIELDS}
+        saveForm = dict(form) if tab in TABS_WITH_SHARED_COMMON else {k: v for k, v in form.items() if k not in COMMON_FIELDS}
         configUtils.dumpJsonConfig(_config_path(tab, active), saveForm)
         _send(palette, 'notification', {'type': 'success', 'message': f'Updated "{active}"'})
 
@@ -411,6 +537,15 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
         _set_active_config_name(tab, name)
         _send(palette, 'set_state', {'tab': tab, 'form': form, 'source': 'load_config'})
         _send_config_list(palette, tab)
+
+        if tab in TABS_WITH_SHARED_COMMON:
+            commonOverrides = {k: saved[k] for k in COMMON_FIELDS if k in saved}
+            if commonOverrides:
+                commonForm = _load_common()
+                commonForm.update(commonOverrides)
+                _save_common(commonForm)
+                _send(palette, 'set_state', {'tab': 'common', 'form': commonForm, 'source': 'load_config'})
+
         _send(palette, 'notification', {'type': 'success', 'message': f'Loaded "{name}"'})
 
     def _handle_delete_config(self, palette: adsk.core.Palette, tab: str, name: str):
@@ -457,7 +592,7 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
 
         try:
             previewState.clear_preview()
-            occurrence = generation.create_and_build(tab, form)
+            occurrence = generation.create_and_build(tab, form, is_preview=True)
             previewState.track_preview(tab, occurrence)
             _send(palette, 'preview_status', {'tab': tab, 'active': True, 'adopted': False})
         except UnsupportedDesignTypeException:
@@ -484,6 +619,11 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
             _send(palette, 'notification', {'type': 'error', 'message': message})
             return
 
+        hybridOk, hybridMessage = _ensure_hybrid_design_intent()
+        if not hybridOk:
+            _send(palette, 'notification', {'type': 'error', 'message': hybridMessage})
+            return
+
         try:
             previewState.clear_preview()
             generation.create_and_build(tab, form)
@@ -496,6 +636,35 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
             })
         except Exception:
             app.log(f'{CMD_NAME} generate failed:\n{traceback.format_exc()}')
+            _send(palette, 'notification', {'type': 'error', 'message': getErrorMessage()})
+
+    def _handle_optimize(self, palette: adsk.core.Palette, form: dict):
+        result = validation.validate_optimizer(form)
+        if not result['valid']:
+            _send(palette, 'validation_result', {
+                'tab': 'optimizer', 'valid': False,
+                'fieldErrors': result['fieldErrors'], 'computed': result['computed'],
+            })
+            _send(palette, 'notification', {'type': 'error', 'message': 'Fix the highlighted fields before calculating'})
+            return
+
+        try:
+            state = OptimizerInputState.from_form(form)
+            items = [
+                {'description': item.description, 'widthMm': item.width * 10, 'depthMm': item.depth * 10}
+                for item in state.items
+            ]
+            optimizerResult = optimizer.compute_best_fit(
+                items,
+                min_size_mm=round(state.minSize * 10),
+                max_size_mm=round(state.maxSize * 10),
+                allow_half_bins=state.allowHalfBins,
+                compare_standard=state.compareStandard,
+                priority=state.priority,
+            )
+            _send(palette, 'optimizer_result', optimizerResult)
+        except Exception:
+            app.log(f'{CMD_NAME} optimize failed:\n{traceback.format_exc()}')
             _send(palette, 'notification', {'type': 'error', 'message': getErrorMessage()})
 
     def _handle_edit_active_component(self, palette: adsk.core.Palette):
@@ -514,7 +683,7 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
             if comp is None or comp.entityToken == des.rootComponent.entityToken:
                 _send(palette, 'notification', {
                     'type': 'error',
-                    'message': 'Double-click a Gridfinity component in the browser to activate it first, then click this button.',
+                    'message': 'Hover over a Gridfinity component in the browser and click the radio button that appears to its right to activate it first, then click this button.',
                 })
                 return
 
@@ -549,8 +718,9 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
             # Release (not delete) whatever was previously tracked, then return to
             # root so the adopted occurrence isn't "inside" the active edit context.
             previewState.clear_preview(force=False)
-            des.rootComponent.activate()
-            previewState.track_preview(kind, occurrence, adopted=True)
+            des.activateRootComponent()
+            comp.name = f'{generation.PREVIEW_NAME_PREFIX}{componentName}'
+            previewState.track_preview(kind, occurrence, adopted=True, original_name=componentName)
 
             _send(palette, 'set_state', {
                 'tab': kind, 'form': form, 'source': 'edit_component', 'componentName': componentName,
@@ -564,6 +734,9 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
 class PaletteCloseHandler(adsk.core.UserInterfaceGeneralEventHandler):
     def notify(self, args):
         try:
+            palette = ui.palettes.itemById(config.PALETTE_ID)
+            if palette:
+                _save_palette_geometry(palette)
             previewState.clear_preview(force=False)
         except Exception:
             app.log(f'{CMD_NAME} PaletteCloseHandler failed:\n{traceback.format_exc()}')

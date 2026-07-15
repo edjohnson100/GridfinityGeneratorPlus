@@ -1,0 +1,29 @@
+{
+ "minSize": 3,
+ "maxSize": 7.5,
+ "allowHalfBins": false,
+ "priority": "widthOnly",
+ "compareStandard": true,
+ "items": [
+  {
+   "description": "18\" Kitchen",
+   "width": 32.5,
+   "depth": 50.2
+  },
+  {
+   "description": "21\" Kitchen",
+   "width": 40.15,
+   "depth": 50.2
+  },
+  {
+   "description": "30\" Kitchen",
+   "width": 63,
+   "depth": 50.2
+  },
+  {
+   "description": "36\" Kitchen",
+   "width": 78.25,
+   "depth": 50.2
+  }
+ ]
+}

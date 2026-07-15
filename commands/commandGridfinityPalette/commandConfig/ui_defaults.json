@@ -1,8 +1,11 @@
 {
  "bin": {
-  "activeConfig": "50Full"
+  "activeConfig": "46Half"
  },
  "baseplate": {
-  "activeConfig": "62x62"
+  "activeConfig": "46x46"
+ },
+ "optimizer": {
+  "activeConfig": "Kitchen Drawers"
  }
 }

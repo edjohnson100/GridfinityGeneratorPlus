@@ -31,6 +31,7 @@ BIN_TYPE_SOLID = 'Solid'
 BASEPLATE_TYPE_LIGHT = 'Light'
 BASEPLATE_TYPE_FULL = 'Full'
 BASEPLATE_TYPE_SKELETONIZED = 'Skeletonized'
+BASEPLATE_TYPE_STACKABLE = 'Stackable'
 
 COMPARTMENTS_GRID_TYPE_UNIFORM = 'Uniform'
 
@@ -41,12 +42,18 @@ GENERATED_FORM_ATTR_GROUP = config.ADDIN_NAME
 GENERATED_FORM_ATTR_KIND = 'kind'
 GENERATED_FORM_ATTR_FORM_JSON = 'formJson'
 
+# Visual "not finalized yet" marker for preview components.
+PREVIEW_NAME_PREFIX = 'PREVIEW_'
 
-def create_and_build(kind: str, form: dict):
+
+def create_and_build(kind: str, form: dict, is_preview: bool = False):
     """Builds the requested geometry and returns the entity(ies) to track for preview cleanup:
     an Occurrence when a new component was created (hybrid design intent), or a list of the
     newly created timeline entities when building directly into the root component (Part/Assembly
     design intent, where addNewComponent is not permitted).
+
+    is_preview=True marks the built component as not-yet-finalized (PREVIEW_ name prefix)
+    -- set by Update Preview, not by Generate.
     """
     des = adsk.fusion.Design.cast(app.activeProduct)
     if des is None or des.designType == adsk.fusion.DesignTypes.DirectDesignType:
@@ -84,6 +91,9 @@ def create_and_build(kind: str, form: dict):
     else:
         raise ValueError(f'Unknown generator kind: {kind}')
 
+    if newCmpOcc and is_preview:
+        newCmpOcc.component.name = f'{PREVIEW_NAME_PREFIX}{name}'
+
     if newCmpOcc:
         attrs = newCmpOcc.component.attributes
         attrs.add(GENERATED_FORM_ATTR_GROUP, GENERATED_FORM_ATTR_KIND, kind)
@@ -106,7 +116,7 @@ def build_baseplate(inputState: BaseplateInputState, component: adsk.fusion.Comp
     baseplateGeneratorInput.xyClearance = inputState.xyClearance
     baseplateGeneratorInput.baseplateWidth = inputState.plateWidth
     baseplateGeneratorInput.baseplateLength = inputState.plateLength
-    baseplateGeneratorInput.hasExtendedBottom = not inputState.plateType == BASEPLATE_TYPE_LIGHT
+    baseplateGeneratorInput.hasExtendedBottom = inputState.plateType not in (BASEPLATE_TYPE_LIGHT, BASEPLATE_TYPE_STACKABLE)
     baseplateGeneratorInput.hasSkeletonizedBottom = inputState.plateType == BASEPLATE_TYPE_SKELETONIZED
     baseplateGeneratorInput.hasMagnetCutouts = inputState.hasMagnetCutouts
     baseplateGeneratorInput.magnetCutoutsDiameter = inputState.magnetDiameter
@@ -124,9 +134,13 @@ def build_baseplate(inputState: BaseplateInputState, component: adsk.fusion.Comp
     baseplateGeneratorInput.hasConnectionHoles = inputState.hasConnectionHoles
     baseplateGeneratorInput.connectionScrewHolesDiameter = inputState.connectionHoleDiameter
     baseplateGeneratorInput.cornerFilletRadius = const.BIN_CORNER_FILLET_RADIUS
+    baseplateGeneratorInput.isStackable = inputState.plateType == BASEPLATE_TYPE_STACKABLE
+    baseplateGeneratorInput.stackCount = inputState.stackCount
+    baseplateGeneratorInput.interfaceLayerThickness = inputState.interfaceLayerThickness
 
     baseplateBody = createGridfinityBaseplate(baseplateGeneratorInput, component)
-    baseplateBody.name = name
+    if not baseplateGeneratorInput.isStackable:
+        baseplateBody.name = name
 
 
 def build_bin(inputState: BinInputState, component: adsk.fusion.Component, name: str):
