@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <link rel="stylesheet" href="style.css?v=1">
+  <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
   <div id="app">
@@ -23,6 +23,11 @@
       </div>
     </fieldset>
 
+    <div class="actions secondary">
+      <button type="button" data-action="edit_active_component">Edit Active Component</button>
+    </div>
+    <span class="field-hint">Double-click a Gridfinity component in the browser to activate it, then click here to load it back into the palette for editing.</span>
+
     <div class="tabs">
       <button class="tab-button active" data-tab="bin">Bin</button>
       <button class="tab-button" data-tab="baseplate">Baseplate</button>
@@ -31,14 +36,15 @@
     <div id="notification" class="notification hidden"></div>
 
     <div id="tab-bin" class="tab-panel active">
-      <fieldset>
-        <legend>Basic size</legend>
+      <div id="bin-edit-banner" class="edit-banner hidden"></div>
+      <details class="section" open>
+        <summary>Basic size</summary>
         <label>Height unit (mm) <input type="number" step="0.1" id="bin.heightUnit"></label>
         <span class="field-error" data-error-for="heightUnit"></span>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Dimensions</legend>
+      <details class="section" open>
+        <summary>Dimensions</summary>
         <label>Bin width, X (u) <input type="number" step="1" min="1" id="bin.binWidth"></label>
         <label>Bin length, Y (u) <input type="number" step="1" min="1" id="bin.binLength"></label>
         <label>Bin height (u) <input type="number" step="0.5" min="1" id="bin.binHeight"></label>
@@ -46,10 +52,10 @@
         <span class="field-error" data-error-for="binLength"></span>
         <span class="field-error" data-error-for="binHeight"></span>
         <div class="computed" id="bin-computed-dimensions"></div>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Body</legend>
+      <details class="section" open>
+        <summary>Body</summary>
         <label><input type="checkbox" id="bin.generateBody"> Generate body</label>
         <label>Bin type
           <select id="bin.binType">
@@ -62,10 +68,10 @@
         <span class="field-error" data-error-for="wallThickness"></span>
         <label><input type="checkbox" id="bin.withLip"> With lip</label>
         <label><input type="checkbox" id="bin.withLipNotches"> With lip notches</label>
-      </fieldset>
+      </details>
 
-      <fieldset id="bin-compartments-fieldset">
-        <legend>Compartments</legend>
+      <details class="section" id="bin-compartments-fieldset" open>
+        <summary>Compartments</summary>
         <label>Grid type
           <select id="bin.compartmentsGridType">
             <option value="Uniform">Uniform</option>
@@ -83,17 +89,17 @@
           <button type="button" id="bin-compartments-add">Add compartment</button>
           <button type="button" id="bin-compartments-reset-uniform">Reset to uniform</button>
         </div>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Scoop</legend>
+      <details class="section" open>
+        <summary>Scoop</summary>
         <label><input type="checkbox" id="bin.hasScoop"> Add scoop</label>
         <label>Scoop max radius (mm) <input type="number" step="0.1" id="bin.scoopMaxRadius"></label>
         <span class="field-error" data-error-for="scoopMaxRadius"></span>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Label tab</legend>
+      <details class="section" open>
+        <summary>Label tab</summary>
         <label><input type="checkbox" id="bin.hasTab"> Add label tab</label>
         <label>Tab length (u) <input type="number" step="1" id="bin.tabLength"></label>
         <label>Tab width (mm) <input type="number" step="0.1" id="bin.tabWidth"></label>
@@ -103,10 +109,10 @@
         <span class="field-error" data-error-for="tabWidth"></span>
         <span class="field-error" data-error-for="tabPosition"></span>
         <span class="field-error" data-error-for="tabAngleDeg"></span>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Base</legend>
+      <details class="section" open>
+        <summary>Base</summary>
         <label><input type="checkbox" id="bin.generateBase"> Generate base</label>
         <label><input type="checkbox" id="bin.hasScrewHoles"> Add screw holes</label>
         <label>Screw hole diameter (mm) <input type="number" step="0.05" id="bin.screwDiameter"></label>
@@ -114,10 +120,10 @@
         <label><input type="checkbox" id="bin.hasMagnetCutoutsTabs"> Add magnet cutout tabs</label>
         <span class="field-error" data-error-for="screwDiameter"></span>
         <span class="field-hint">Magnet cutout size is set in Common settings above</span>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Configurations</legend>
+      <details class="section" open>
+        <summary>Configurations</summary>
         <div class="config-active" id="bin-config-active"></div>
         <label>Saved config
           <select id="bin-config-select"></select>
@@ -133,7 +139,7 @@
         <div class="actions secondary">
           <button type="button" data-action="factory_reset" data-tab="bin">Factory Reset</button>
         </div>
-      </fieldset>
+      </details>
 
       <div class="actions">
         <button type="button" data-action="update_preview" data-tab="bin">Update Preview</button>
@@ -145,16 +151,17 @@
     </div>
 
     <div id="tab-baseplate" class="tab-panel">
-      <fieldset>
-        <legend>Main dimensions</legend>
+      <div id="baseplate-edit-banner" class="edit-banner hidden"></div>
+      <details class="section" open>
+        <summary>Main dimensions</summary>
         <label>Plate width, X (u) <input type="number" step="1" min="1" id="baseplate.plateWidth"></label>
         <label>Plate length, Y (u) <input type="number" step="1" min="1" id="baseplate.plateLength"></label>
         <span class="field-error" data-error-for="plateWidth"></span>
         <span class="field-error" data-error-for="plateLength"></span>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Features</legend>
+      <details class="section" open>
+        <summary>Features</summary>
         <label>Baseplate type
           <select id="baseplate.plateType">
             <option value="Light">Light</option>
@@ -162,36 +169,36 @@
             <option value="Full">Full</option>
           </select>
         </label>
-      </fieldset>
+      </details>
 
-      <fieldset id="baseplate-magnet-cutouts-fieldset">
-        <legend>Magnet cutouts</legend>
+      <details class="section" id="baseplate-magnet-cutouts-fieldset" open>
+        <summary>Magnet cutouts</summary>
         <label><input type="checkbox" id="baseplate.hasMagnetCutouts"> Add magnet cutouts</label>
         <span class="field-hint">Magnet cutout size is set in Common settings above</span>
         <span class="field-hint" id="baseplate-magnet-cutouts-hint"></span>
-      </fieldset>
+      </details>
 
-      <fieldset id="baseplate-screw-holes-fieldset">
-        <legend>Screw holes</legend>
+      <details class="section" id="baseplate-screw-holes-fieldset" open>
+        <summary>Screw holes</summary>
         <label><input type="checkbox" id="baseplate.hasScrewHoles"> Add screw holes</label>
         <label>Screw hole diameter (mm) <input type="number" step="0.05" id="baseplate.screwDiameter"></label>
         <label>Screw head cutout diameter (mm) <input type="number" step="0.05" id="baseplate.screwHeadDiameter"></label>
         <span class="field-error" data-error-for="screwDiameter"></span>
         <span class="field-error" data-error-for="screwHeadDiameter"></span>
         <span class="field-hint" id="baseplate-screw-holes-hint"></span>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Side padding</legend>
+      <details class="section" open>
+        <summary>Side padding</summary>
         <label><input type="checkbox" id="baseplate.hasSidePadding"> Add side padding</label>
         <label>Padding left (mm) <input type="number" step="0.1" id="baseplate.paddingLeft"></label>
         <label>Padding top (mm) <input type="number" step="0.1" id="baseplate.paddingTop"></label>
         <label>Padding right (mm) <input type="number" step="0.1" id="baseplate.paddingRight"></label>
         <label>Padding bottom (mm) <input type="number" step="0.1" id="baseplate.paddingBottom"></label>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Advanced</legend>
+      <details class="section" open>
+        <summary>Advanced</summary>
         <div id="baseplate-extra-bottom-thickness-row">
           <label>Extra bottom thickness (mm) <input type="number" step="0.1" id="baseplate.extraBottomThickness"></label>
           <span class="field-error" data-error-for="extraBottomThickness"></span>
@@ -204,10 +211,10 @@
           <span class="field-error" data-error-for="connectionHoleDiameter"></span>
           <span class="field-hint" id="baseplate-connection-holes-hint"></span>
         </div>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Configurations</legend>
+      <details class="section" open>
+        <summary>Configurations</summary>
         <div class="config-active" id="baseplate-config-active"></div>
         <label>Saved config
           <select id="baseplate-config-select"></select>
@@ -223,7 +230,7 @@
         <div class="actions secondary">
           <button type="button" data-action="factory_reset" data-tab="baseplate">Factory Reset</button>
         </div>
-      </fieldset>
+      </details>
 
       <div class="actions">
         <button type="button" data-action="update_preview" data-tab="baseplate">Update Preview</button>
@@ -234,6 +241,6 @@
       </div>
     </div>
   </div>
-  <script src="script.js?v=1"></script>
+  <script src="script.js?v=2"></script>
 </body>
 </html>

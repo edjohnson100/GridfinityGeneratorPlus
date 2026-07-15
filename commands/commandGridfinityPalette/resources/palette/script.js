@@ -134,12 +134,31 @@ function onSetState(payload) {
         const label = tab === 'bin' ? 'Bin' : tab === 'baseplate' ? 'Baseplate' : 'Common';
         showNotification('success', `${label} settings reset`);
     }
+    if (payload.source === 'edit_component') {
+        setActiveTab(tab);
+        setEditBanner(tab, payload.componentName);
+        showNotification('success', `Editing "${payload.componentName}"`);
+    } else if (tab !== 'common') {
+        setEditBanner(tab, null);
+    }
     if (tab === 'common') {
         requestValidation('bin');
         requestValidation('baseplate');
     } else {
         requestValidation(tab);
     }
+}
+
+function setEditBanner(tab, componentName) {
+    const banner = document.getElementById(`${tab}-edit-banner`);
+    if (!banner) return;
+    if (!componentName) {
+        banner.classList.add('hidden');
+        banner.textContent = '';
+        return;
+    }
+    banner.textContent = `Editing "${componentName}" — Update Preview to apply changes, Generate to make it permanent again, or Clear Preview to delete it. Closing without doing any of these leaves it unchanged.`;
+    banner.classList.remove('hidden');
 }
 
 function onValidationResult(payload) {
@@ -157,6 +176,12 @@ function onPreviewStatus(payload) {
     document.querySelectorAll('.clear-preview-button').forEach(btn => {
         btn.disabled = !payload.active;
     });
+    if (!payload.active) {
+        setEditBanner('bin', null);
+        setEditBanner('baseplate', null);
+    } else if (!payload.adopted) {
+        setEditBanner(payload.tab, null);
+    }
 }
 
 function onConfigList(payload) {
@@ -417,12 +442,16 @@ document.getElementById('baseplate.plateType').addEventListener('change', () => 
 });
 
 // ---- Tabs ----
+function setActiveTab(tab) {
+    state.activeTab = tab;
+    document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${tab}`));
+}
+
 document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => {
         const tab = btn.dataset.tab;
-        state.activeTab = tab;
-        document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b === btn));
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${tab}`));
+        setActiveTab(tab);
         requestValidation(tab);
     });
 });
@@ -474,6 +503,10 @@ document.querySelectorAll('button[data-action]').forEach(btn => {
     btn.addEventListener('click', () => {
         const action = btn.dataset.action;
         const tab = btn.dataset.tab;
+        if (!tab) {
+            sendToFusion(action, {});
+            return;
+        }
         if (tab === 'common') {
             sendToFusion(action, { tab });
             return;

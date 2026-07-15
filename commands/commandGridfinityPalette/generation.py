@@ -1,5 +1,7 @@
 import adsk.core, adsk.fusion
+import json
 
+from ... import config
 from ...lib import fusion360utils as futil
 from ...lib.gridfinityUtils import combineUtils
 from ...lib.gridfinityUtils import geometryUtils
@@ -31,6 +33,13 @@ BASEPLATE_TYPE_FULL = 'Full'
 BASEPLATE_TYPE_SKELETONIZED = 'Skeletonized'
 
 COMPARTMENTS_GRID_TYPE_UNIFORM = 'Uniform'
+
+# Attribute group used to stamp generated (hybrid-design-intent) components with the
+# form that built them, so they can later be re-adopted for editing. See
+# commandGridfinityPalette.entry._handle_edit_active_component.
+GENERATED_FORM_ATTR_GROUP = config.ADDIN_NAME
+GENERATED_FORM_ATTR_KIND = 'kind'
+GENERATED_FORM_ATTR_FORM_JSON = 'formJson'
 
 
 def create_and_build(kind: str, form: dict):
@@ -74,6 +83,11 @@ def create_and_build(kind: str, form: dict):
         build_baseplate(inputState, component, name)
     else:
         raise ValueError(f'Unknown generator kind: {kind}')
+
+    if newCmpOcc:
+        attrs = newCmpOcc.component.attributes
+        attrs.add(GENERATED_FORM_ATTR_GROUP, GENERATED_FORM_ATTR_KIND, kind)
+        attrs.add(GENERATED_FORM_ATTR_GROUP, GENERATED_FORM_ATTR_FORM_JSON, json.dumps(form))
 
     if des.designType == adsk.fusion.DesignTypes.ParametricDesignType:
         group = des.timeline.timelineGroups.add(originalTimelineCount, des.timeline.count - 1)

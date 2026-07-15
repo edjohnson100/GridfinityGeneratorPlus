@@ -65,6 +65,42 @@ legend {
   padding: 0 4px;
 }
 
+details.section {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  padding: 0 8px 6px;
+}
+
+details.section > summary {
+  font-weight: bold;
+  padding: 6px 4px;
+  margin: 0 -8px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+details.section > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.section > summary::before {
+  content: '\25B6';
+  display: inline-block;
+  font-size: 9px;
+  width: 1em;
+  transition: transform 0.1s ease;
+}
+
+details.section[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+details.section:not([open]) {
+  padding-bottom: 0;
+}
+
 label {
   display: flex;
   align-items: center;
@@ -195,6 +231,16 @@ label select {
   border: 1px solid var(--error);
 }
 
+.edit-banner {
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  background: #fff8e1;
+  color: #8a6d00;
+  border: 1px solid #e6c200;
+  font-size: 11px;
+}
+
 @media (prefers-color-scheme: dark) {
   body {
     background: #1e1e1e;
@@ -208,6 +254,9 @@ label select {
     background: #333;
   }
   fieldset {
+    border-color: #444;
+  }
+  details.section {
     border-color: #444;
   }
   .actions.secondary button {
@@ -224,5 +273,10 @@ label select {
   }
   .config-active {
     color: #aaa;
+  }
+  .edit-banner {
+    background: #3a3210;
+    color: #f0d878;
+    border-color: #6b5c1a;
   }
 }
