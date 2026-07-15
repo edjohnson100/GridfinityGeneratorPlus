@@ -1,0 +1,23 @@
+{
+  "baseWidthUnit": 5.0,
+  "baseLengthUnit": 5.0,
+  "xyClearance": 0.015,
+  "plateWidth": 4,
+  "plateLength": 4,
+  "plateType": "Light",
+  "hasMagnetCutouts": false,
+  "magnetDiameter": 0.65,
+  "magnetDepth": 0.24,
+  "hasScrewHoles": false,
+  "screwDiameter": 0.32,
+  "screwHeadDiameter": 0.6,
+  "hasSidePadding": true,
+  "paddingLeft": 0.41500000000000004,
+  "paddingTop": 0.015,
+  "paddingRight": 0.41500000000000004,
+  "paddingBottom": 0.015,
+  "extraBottomThickness": 0.64,
+  "binZClearance": 0.05,
+  "hasConnectionHoles": false,
+  "connectionHoleDiameter": 0.32
+}

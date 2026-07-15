@@ -1,0 +1,162 @@
+{
+ "info_group": {
+  "id": "info_group",
+  "value": true,
+  "type": "adsk::core::GroupCommandInput"
+ },
+ "basic_sizes": {
+  "id": "basic_sizes",
+  "value": true,
+  "type": "adsk::core::GroupCommandInput"
+ },
+ "xy_dimensions": {
+  "id": "xy_dimensions",
+  "value": true,
+  "type": "adsk::core::GroupCommandInput"
+ },
+ "plate_features": {
+  "id": "plate_features",
+  "value": true,
+  "type": "adsk::core::GroupCommandInput"
+ },
+ "magnet_cutout_group": {
+  "id": "magnet_cutout_group",
+  "value": true,
+  "type": "adsk::core::GroupCommandInput"
+ },
+ "screw_hole_group": {
+  "id": "screw_hole_group",
+  "value": true,
+  "type": "adsk::core::GroupCommandInput"
+ },
+ "advanced_plate_size_group": {
+  "id": "advanced_plate_size_group",
+  "value": true,
+  "type": "adsk::core::GroupCommandInput"
+ },
+ "input_changes_group": {
+  "id": "input_changes_group",
+  "value": true,
+  "type": "adsk::core::GroupCommandInput"
+ },
+ "side_padding_group": {
+  "id": "side_padding_group",
+  "value": true,
+  "type": "adsk::core::GroupCommandInput"
+ },
+ "preview_group": {
+  "id": "preview_group",
+  "value": true,
+  "type": "adsk::core::GroupCommandInput"
+ },
+ "base_width_unit": {
+  "id": "base_width_unit",
+  "value": 5.0,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "base_length_unit": {
+  "id": "base_length_unit",
+  "value": 5.0,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "bin_xy_clearance": {
+  "id": "bin_xy_clearance",
+  "value": 0.015,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "plate_width": {
+  "id": "plate_width",
+  "value": 4,
+  "type": "adsk::core::IntegerSpinnerCommandInput"
+ },
+ "plate_length": {
+  "id": "plate_length",
+  "value": 4,
+  "type": "adsk::core::IntegerSpinnerCommandInput"
+ },
+ "plate_type_dropdown": {
+  "id": "plate_type_dropdown",
+  "value": "Light",
+  "type": "adsk::core::DropDownCommandInput"
+ },
+ "with_magnet_cutouts": {
+  "id": "with_magnet_cutouts",
+  "value": false,
+  "type": "adsk::core::BoolValueCommandInput"
+ },
+ "magnet_diameter": {
+  "id": "magnet_diameter",
+  "value": 0.65,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "magnet_height": {
+  "id": "magnet_height",
+  "value": 0.24,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "with_screw_holes": {
+  "id": "with_screw_holes",
+  "value": false,
+  "type": "adsk::core::BoolValueCommandInput"
+ },
+ "with_side_padding": {
+  "id": "with_side_padding",
+  "value": true,
+  "type": "adsk::core::BoolValueCommandInput"
+ },
+ "side_padding_left": {
+  "id": "side_padding_left",
+  "value": 0.41500000000000004,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "side_padding_top": {
+  "id": "side_padding_top",
+  "value": 0.015,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "side_padding_right": {
+  "id": "side_padding_right",
+  "value": 0.41500000000000004,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "side_padding_bottom": {
+  "id": "side_padding_bottom",
+  "value": 0.015,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "screw_diameter": {
+  "id": "screw_diameter",
+  "value": 0.32,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "screw_head_diameter": {
+  "id": "screw_head_diameter",
+  "value": 0.6,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "extra_bottom_thickness": {
+  "id": "extra_bottom_thickness",
+  "value": 0.64,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "bin_z_clearance": {
+  "id": "bin_z_clearance",
+  "value": 0.05,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "has_connection_hole": {
+  "id": "has_connection_hole",
+  "value": false,
+  "type": "adsk::core::BoolValueCommandInput"
+ },
+ "connection_hole_diameter": {
+  "id": "connection_hole_diameter",
+  "value": 0.32,
+  "type": "adsk::core::ValueCommandInput"
+ },
+ "show_preview": {
+  "id": "show_preview",
+  "value": false,
+  "type": "adsk::core::BoolValueCommandInput"
+ }
+}

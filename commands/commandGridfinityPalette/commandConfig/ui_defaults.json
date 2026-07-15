@@ -1,0 +1,8 @@
+{
+ "bin": {
+  "activeConfig": "50Full"
+ },
+ "baseplate": {
+  "activeConfig": "62x62"
+ }
+}
