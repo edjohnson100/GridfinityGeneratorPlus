@@ -378,7 +378,109 @@ def createGridfinityBaseplate(input: BaseplateGeneratorInput, targetComponent: a
     )
     finalCut.name = "Final baseplate cut"
 
+    if input.isStackable:
+        bbox = binInterfaceBody.boundingBox
+        midZ = (bbox.minPoint.z + bbox.maxPoint.z) / 2
+
+        splitPlaneInput: adsk.fusion.ConstructionPlaneInput = targetComponent.constructionPlanes.createInput()
+        splitPlaneInput.setByOffset(targetComponent.xYConstructionPlane, adsk.core.ValueInput.createByReal(midZ))
+        splitPlane = targetComponent.constructionPlanes.add(splitPlaneInput)
+        splitPlane.name = "Baseplate stack split plane"
+        splitPlane.isLightBulbOn = False
+
+        splitBodyFeatures = features.splitBodyFeatures
+        splitBodyInput = splitBodyFeatures.createInput(binInterfaceBody, splitPlane, True)
+        splitBodies = splitBodyFeatures.add(splitBodyInput)
+        if splitBodies.bodies.count != 2:
+            raise RuntimeError("Stackable baseplate split did not produce exactly two bodies; the grid geometry may be incompatible with mid-height splitting.")
+        bottomBody = min(splitBodies.bodies, key=lambda x: x.boundingBox.minPoint.z)
+        topBody = max(splitBodies.bodies, key=lambda x: x.boundingBox.minPoint.z)
+
+        targetComponent.features.removeFeatures.add(bottomBody)
+
+        mirrorInput = features.mirrorFeatures.createInput(commonUtils.objectCollectionFromList([topBody]), splitPlane)
+        mirrorFeature = features.mirrorFeatures.add(mirrorInput)
+        mirroredBody = mirrorFeature.bodies.item(0)
+
+        symmetricJoinFeature = combineUtils.joinBodies(
+            topBody,
+            commonUtils.objectCollectionFromList([mirroredBody]),
+            targetComponent,
+        )
+        symmetricJoinFeature.name = "Baseplate stack symmetric join"
+        binInterfaceBody = symmetricJoinFeature.bodies.item(0)
+
+        if input.stackCount > 1:
+            stackBbox = binInterfaceBody.boundingBox
+            plateHeight = stackBbox.maxPoint.z - stackBbox.minPoint.z
+            spacing = plateHeight + input.interfaceLayerThickness
+
+            interfaceLayerExtrude = extrudeUtils.simpleDistanceExtrude(
+                faceUtils.getTopFace(binInterfaceBody),
+                adsk.fusion.FeatureOperations.NewBodyFeatureOperation,
+                input.interfaceLayerThickness,
+                adsk.fusion.ExtentDirections.PositiveExtentDirection,
+                [],
+                targetComponent,
+            )
+            interfaceLayerBody = interfaceLayerExtrude.bodies.item(0)
+
+            _applyInterfaceLayerAppearance(binInterfaceBody, interfaceLayerBody, targetComponent)
+
+            binInterfaceBody.name = "Baseplate_01"
+            interfaceLayerBody.name = "Interface_01"
+
+            baseplatePattern = patternUtils.linearPattern(
+                commonUtils.objectCollectionFromList([binInterfaceBody]),
+                targetComponent.zConstructionAxis,
+                input.stackCount,
+                spacing,
+                targetComponent,
+            )
+            for i, body in enumerate(baseplatePattern.bodies, start=2):
+                body.name = f"Baseplate_{i:02d}"
+
+            interfaceLayerPattern = patternUtils.linearPattern(
+                commonUtils.objectCollectionFromList([interfaceLayerBody]),
+                targetComponent.zConstructionAxis,
+                input.stackCount - 1,
+                spacing,
+                targetComponent,
+            )
+            for i, body in enumerate(interfaceLayerPattern.bodies, start=2):
+                body.name = f"Interface_{i:02d}"
+        else:
+            binInterfaceBody.name = "Baseplate"
+
     return binInterfaceBody
+
+
+def _applyInterfaceLayerAppearance(
+    baseplateBody: adsk.fusion.BRepBody,
+    interfaceLayerBody: adsk.fusion.BRepBody,
+    targetComponent: adsk.fusion.Component,
+    ):
+    # Applied to the seed body only; the rectangular pattern copies inherit it automatically.
+    app = adsk.core.Application.get()
+    try:
+        design = adsk.fusion.Design.cast(app.activeProduct)
+        sourceAppearance = baseplateBody.appearance or targetComponent.appearance
+        if sourceAppearance is None:
+            library = app.materialLibraries.itemByName('Fusion 360 Appearance Library')
+            sourceAppearance = library.appearances.itemByName('Plastic - Matte (White)') if library else None
+        if sourceAppearance is None:
+            return
+
+        appearanceName = 'Gridfinity interface layer'
+        interfaceAppearance = design.appearances.itemByName(appearanceName)
+        if interfaceAppearance is None:
+            interfaceAppearance = design.appearances.addByCopy(sourceAppearance, appearanceName)
+        colorProp = adsk.core.ColorProperty.cast(interfaceAppearance.appearanceProperties.itemByName('Color'))
+        if colorProp:
+            colorProp.value = adsk.core.Color.create(255, 127, 0, 0)
+        interfaceLayerBody.appearance = interfaceAppearance
+    except Exception:
+        app.log(f'Failed to apply interface layer appearance:\n{traceback.format_exc()}')
 
 def createConnectionHoleTool(connectionHoleFace: adsk.fusion.BRepFace, diameter: float, depth: float, targetComponent: adsk.fusion.Component):
     connectionHoleSketch: adsk.fusion.Sketch = targetComponent.sketches.add(connectionHoleFace)

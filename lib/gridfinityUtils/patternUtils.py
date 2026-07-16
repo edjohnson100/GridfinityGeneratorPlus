@@ -20,6 +20,21 @@ def recPattern(
     patternInput.distanceTwo = adsk.core.ValueInput.createByReal(distances[1])
     return rectangularPatternFeatures.add(patternInput)
 
+def linearPattern(
+    inputEntities: adsk.core.ObjectCollection,
+    axis: adsk.core.Base,
+    quantity: int,
+    spacing: float,
+    targetComponent: adsk.fusion.Component,
+    ):
+    rectangularPatternFeatures: adsk.fusion.RectangularPatternFeatures = targetComponent.features.rectangularPatternFeatures
+    patternInput = rectangularPatternFeatures.createInput(inputEntities,
+            axis,
+            adsk.core.ValueInput.createByReal(quantity),
+            adsk.core.ValueInput.createByReal(spacing),
+            adsk.fusion.PatternDistanceType.SpacingPatternDistanceType)
+    return rectangularPatternFeatures.add(patternInput)
+
 def circPattern(
     inputEntities: adsk.core.ObjectCollection,
     axis: adsk.core.Base,

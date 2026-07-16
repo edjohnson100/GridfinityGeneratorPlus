@@ -16,6 +16,9 @@ class BaseplateGeneratorInput():
         self.binZClearance = const.BASEPLATE_BIN_Z_CLEARANCE
         self.connectionScrewHolesDiameter = const.DIMENSION_PLATE_CONNECTION_SCREW_HOLE_DIAMETER
         self.cornerFilletRadius = const.BIN_CORNER_FILLET_RADIUS
+        self.isStackable = False
+        self.stackCount = 1
+        self.interfaceLayerThickness = const.BASEPLATE_STACK_INTERFACE_THICKNESS
 
     @property
     def baseWidth(self) -> float:
@@ -72,6 +75,30 @@ class BaseplateGeneratorInput():
     @binZClearance.setter
     def binZClearance(self, value: float):
         self._binZClearance = value
+
+    @property
+    def isStackable(self) -> bool:
+        return self._isStackable
+
+    @isStackable.setter
+    def isStackable(self, value: bool):
+        self._isStackable = value
+
+    @property
+    def stackCount(self) -> int:
+        return self._stackCount
+
+    @stackCount.setter
+    def stackCount(self, value: int):
+        self._stackCount = value
+
+    @property
+    def interfaceLayerThickness(self) -> float:
+        return self._interfaceLayerThickness
+
+    @interfaceLayerThickness.setter
+    def interfaceLayerThickness(self, value: float):
+        self._interfaceLayerThickness = value
 
     @property
     def hasExtendedBottom(self) -> bool:

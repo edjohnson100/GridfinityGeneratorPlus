@@ -43,6 +43,11 @@ Output/
 .env.*
 !.env.example
 
+# Add-in-wide local machine state (e.g. palette window geometry) — unlike the
+# commandConfig/ presets, this is per-machine and not meant to be shared.
+GGPlus_config.json
+imported_themes.json
+
 # ----------------------
 # 7. Claude Code (AI assistant local files)
 # ----------------------

@@ -31,6 +31,9 @@ class BaseplateInputState:
     hasConnectionHoles: bool
     connectionHoleDiameter: float
 
+    stackCount: int
+    interfaceLayerThickness: float
+
     @staticmethod
     def from_form(form: dict) -> 'BaseplateInputState':
         return BaseplateInputState(
@@ -55,4 +58,6 @@ class BaseplateInputState:
             binZClearance=float(form['binZClearance']),
             hasConnectionHoles=bool(form['hasConnectionHoles']),
             connectionHoleDiameter=float(form['connectionHoleDiameter']),
+            stackCount=int(form['stackCount']),
+            interfaceLayerThickness=float(form['interfaceLayerThickness']),
         )
