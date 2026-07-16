@@ -17,7 +17,7 @@ See `docs/Dev_Notes.md` for a running log of notable feature work and design dec
 There is no CLI entry point or headless test runner — `adsk.core` / `adsk.fusion` are Fusion 360's runtime API modules and only exist inside the Fusion 360 process. To verify a change:
 
 1. Open Fusion 360 → Utilities → Add-Ins → Scripts and Add-Ins → add this folder as an add-in (or point Fusion at `GridfinityGeneratorPlus.manifest`).
-2. Run/reload the add-in, then use the "Gridfinity generator" toolbar button (Solid Create panel) to open the palette and exercise the change interactively.
+2. Run/reload the add-in, then use the "GridfinityGeneratorPlus" toolbar button (Solid Create panel) to open the palette and exercise the change interactively.
 3. Use `futil.log(...)` (see `lib/fusion360utils/general_utils.py`) to write to the Fusion 360 Text Command window / console for debugging; toggle verbose logging via `config.DEBUG` in `config.py`.
 
 Since there's no automated test suite, manually generate a bin/baseplate with the changed inputs and confirm the resulting solid body is correct in the Fusion 360 viewport before considering a change done.

@@ -57,7 +57,7 @@ Download the zip file using the green `Code` button above or simply click this l
 ## Using GridfinityGeneratorPlus
 
 ### The Gridfinity Generator Palette
-In the **DESIGN** workspace, find the **SOLID** toolbar panel's **CREATE** dropdown and select **"Gridfinity generator"** to open the palette. It stays docked and open across your session — set your Common settings once, then switch between tabs as needed.
+In the **DESIGN** workspace, find the **SOLID** toolbar panel's **CREATE** dropdown and select **"GridfinityGeneratorPlus"** to open the palette. It stays docked and open across your session — set your Common settings once, then switch between tabs as needed.
 
 * **Common settings panel:** base grid unit, XY clearance, and magnet cutout size, shared by both Bin and Baseplate so they always stay compatible with each other.
 * **Update Preview / Generate / Clear Preview:** preview a part in the viewport before committing to it, make it permanent when you're happy, or discard the preview entirely.

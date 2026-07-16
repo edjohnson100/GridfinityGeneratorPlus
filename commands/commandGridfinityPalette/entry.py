@@ -19,7 +19,7 @@ app = adsk.core.Application.get()
 ui = app.userInterface
 
 CMD_ID = f'{config.COMPANY_NAME}_{config.ADDIN_NAME}_cmdGridfinityPalette'
-CMD_NAME = 'Gridfinity generator'
+CMD_NAME = 'GridfinityGeneratorPlus'
 CMD_Description = 'Create gridfinity bins and baseplates'
 
 WORKSPACE_ID = 'FusionSolidEnvironment'
@@ -31,7 +31,7 @@ ICON_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resource
 CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'commandConfig')
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
 
-PALETTE_TITLE = 'Gridfinity Generator'
+PALETTE_TITLE = 'GridfinityGeneratorPlus'
 PALETTE_VERSION = 13
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 

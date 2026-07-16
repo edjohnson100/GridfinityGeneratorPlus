@@ -25,7 +25,7 @@ If you've used the original GridfinityGenerator, here's what's different:
 |---|---|---|
 | UI | Two separate command dialogs (Bin, Baseplate) | One persistent, dockable palette with tabs |
 | Settings sharing | Base unit / clearance / magnet size duplicated per dialog | Shared "Common settings" panel keeps Bin and Baseplate in sync |
-| Live preview | None — dialog closes on OK | Update Preview / Generate / Clear Preview, with a visible preview body before committing |
+| Live preview | In-dialog only: a "Show auto update preview" checkbox (re-renders on every input change — can be slow for large bins) plus an "Update preview once" button for on-demand renders | A persistent, explicit **Update Preview** button — always on-demand, no auto-update-while-typing, with a visible preview body in the viewport that stays until you Generate or Clear Preview |
 | Re-editing a generated part | Manual timeline editing in Fusion | **Edit Active Component** reloads the exact settings used to build it |
 | Saved presets | None | Named, savable/loadable configurations per tab |
 | Baseplate types | Light, Skeletonized, Full | Adds **Stackable** — a fourth type designed to physically stack |
@@ -39,14 +39,14 @@ Each of these is covered in its own section below.
 
 ## General Usage Instructions
 
-1. **Install the add-in.** Unlike the original (distributed via the Fusion App Store), GridfinityGeneratorPlus is currently installed manually: in Fusion, go to **Utilities → Add-Ins → Scripts and Add-Ins**, and add this folder as an add-in (or point Fusion at `GridfinityGeneratorPlus.manifest`). See [Installation / Uninstallation](#installation--uninstallation) below for details.
-2. **Open the palette.** In the **DESIGN** workspace, find the **SOLID** toolbar panel's **CREATE** dropdown and select **"Gridfinity generator."** This opens (or brings forward) the palette, which stays docked and open across your session — you don't need to reopen it for every bin or baseplate.
+1. **Install the add-in.** Unlike the original (distributed via the Fusion App Store), GridfinityGeneratorPlus is currently installed manually: in Fusion, go to **Utilities → Add-Ins → Scripts and Add-Ins**, and add this folder as an add-in. See [Installation / Uninstallation](#installation--uninstallation) below for details.
+2. **Open the palette.** In the **DESIGN** workspace, find the **SOLID** toolbar panel's **CREATE** dropdown and select **"GridfinityGeneratorPlus."** This opens (or brings forward) the palette, which stays docked and open across your session — you don't need to reopen it for every bin or baseplate.
 3. **Set your Common settings.** At the top of the palette, above the tabs, set your base grid unit (default 42mm), XY clearance, and magnet cutout size once — these are shared by both the Bin and Baseplate tabs so they always stay compatible with each other.
 4. **Pick a tab and set your parameters.** Switch between **Bin**, **Baseplate**, **Grid Optimizer**, and **Theme** using the tab strip. Each field group is a collapsible section — expand or collapse what you need.
 5. **Preview, then Generate.** Click **Update Preview** to see the result in the viewport before committing to anything (this can be re-run as many times as you like, replacing the previous preview). When you're happy with it, click **Generate** to make it a permanent part of your design. **Clear Preview** removes a preview without generating.
 6. **Revisit or fix a mistake later.** Hover over a previously generated Gridfinity component in the Fusion browser and click the radio button that appears to its right to activate it, then click **Edit Active Component** in the palette — this reloads the exact settings used to create it, so you can tweak and regenerate it in place. See [Edit Active Component](#edit-active-component-re-editing-a-generated-part) below.
 
-> **Screenshot:** the toolbar location — SOLID panel → CREATE dropdown → "Gridfinity generator."
+> **Screenshot:** the toolbar location — SOLID panel → CREATE dropdown → "GridfinityGeneratorPlus."
 > ![Toolbar menu location](images/toolbar-menu-location.png)
 
 ---
@@ -158,7 +158,7 @@ To use it: hover over the component you want to change in the Fusion browser tre
 
 | Command | Description |
 |---|---|
-| **Gridfinity generator** | Opens the GridfinityGeneratorPlus palette (Solid Create panel). The palette stays open and docked; use its tabs to switch between Bin, Baseplate, Grid Optimizer, and Theme. |
+| **GridfinityGeneratorPlus** | Opens the GridfinityGeneratorPlus palette (Solid Create panel). The palette stays open and docked; use its tabs to switch between Bin, Baseplate, Grid Optimizer, and Theme. |
 
 *(The original GridfinityGenerator exposed two separate commands, "Gridfinity bin" and "Gridfinity baseplate," each opening its own dialog. This fork consolidates both — and the newer tabs — into the single palette command above.)*
 
@@ -200,7 +200,7 @@ For questions about the underlying Gridfinity geometry generation that predates 
 This fork's development is logged in detail in [`Dev_Notes.md`](Dev_Notes.md), session by session, including the reasoning behind each design decision. A condensed summary of major milestones:
 
 - **Palette UI migration** — replaced the original's two separate command dialogs with a single persistent, dockable HTML palette.
-- **Common settings panel, config manager, live preview** — shared Bin/Baseplate settings, named saved presets, and an Update Preview / Generate / Clear Preview workflow.
+- **Common settings panel, config manager, persistent preview workflow** — shared Bin/Baseplate settings, named saved presets, and an explicit Update Preview / Generate / Clear Preview workflow across the palette (replacing the original's in-dialog auto-update/on-demand preview toggle).
 - **Edit Active Component** — re-edit a previously generated part by reloading the settings stored on it as a Fusion document attribute.
 - **Grid Optimizer tab** — recommends an optimal custom grid pitch from user-entered drawer/cabinet dimensions.
 - **Stackable baseplate type** — a fourth baseplate type, symmetric top-to-bottom for physical stacking, with configurable interface layers.
