@@ -80,6 +80,8 @@ Set a **Stack Count** greater than 1 to generate a whole stack in one operation:
 
 For best results, a **Clearance between baseplate and bin** of at least 1–1.5mm is recommended when using Stackable — the palette will show a hint reminding you of this when the Stackable type is selected.
 
+> **Credit:** the split-mirror stacking technique used here is based on the method demonstrated by **James at [Clough42](https://www.youtube.com/@Clough42)** on YouTube, in [*Gridfinity in the Machine Shop: 3D Printed Metrology Toolbox Organization*](https://www.youtube.com/watch?v=RYA0xLryF-g). Many thanks for sharing it.
+
 > **Screenshot:** a generated stack of 3 Stackable baseplates in the Fusion viewport, interface layers visibly colored differently from the baseplates.
 > ![Stackable baseplate stack, 3 plates with colored interface layers](images/stackable-baseplate-stack.png)
 >
