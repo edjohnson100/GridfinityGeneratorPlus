@@ -48,6 +48,13 @@ Output/
 GGPlus_config.json
 imported_themes.json
 
+# Live palette session state (current Common-panel values, which named
+# preset is active per tab) — mutates on every edit, not deliberately saved
+# content like the named presets/ files. Falls back to hardcoded defaults
+# (entry.py DEFAULT_COMMON / DEFAULTS_BY_TAB) when absent.
+commands/commandGridfinityPalette/commandConfig/common.json
+commands/commandGridfinityPalette/commandConfig/ui_defaults.json
+
 # ----------------------
 # 7. Claude Code (AI assistant local files)
 # ----------------------
