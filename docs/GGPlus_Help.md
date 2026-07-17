@@ -1,9 +1,10 @@
 # GridfinityGeneratorPlus — Help
 
-**A Fusion 360 add-in for generating parametric [Gridfinity](https://gridfinity.xyz/) storage bins and baseplates.**
+<img src="images/GFPlusAppIcon.png" alt="Application Icon" width="128">
 
-> **Screenshot:** the palette docked in Fusion, Bin tab active, showing the Common settings panel and tab strip.
-> ![Palette overview - Bin tab](images/palette-overview-bin.png)
+**A Fusion add-in for generating parametric [Gridfinity](https://gridfinity.xyz/) storage bins and baseplates.**
+
+> <img src="images/palette-overview-bin.png" alt="Palette overview - Bin tab" width="350">
 
 ---
 
@@ -46,8 +47,7 @@ Each of these is covered in its own section below.
 5. **Preview, then Generate.** Click **Update Preview** to see the result in the viewport before committing to anything (this can be re-run as many times as you like, replacing the previous preview). When you're happy with it, click **Generate** to make it a permanent part of your design. **Clear Preview** removes a preview without generating.
 6. **Revisit or fix a mistake later.** Hover over a previously generated Gridfinity component in the Fusion browser and click the radio button that appears to its right to activate it, then click **Edit Active Component** in the palette — this reloads the exact settings used to create it, so you can tweak and regenerate it in place. See [Edit Active Component](#edit-active-component-re-editing-a-generated-part) below.
 
-> **Screenshot:** the toolbar location — SOLID panel → CREATE dropdown → "GridfinityGeneratorPlus."
-> ![Toolbar menu location](images/toolbar-menu-location.png)
+<img src="images/toolbar-menu-location.png" alt="Toolbar menu location" width="450">
 
 ---
 
@@ -57,8 +57,7 @@ Each of these is covered in its own section below.
 
 Generates a parametric Gridfinity bin: overall size (in grid units), wall type (Hollow/Shelled/Solid), stacking lip, uniform or custom compartment grid, scoop, label tab, base screw holes, and magnet cutouts. This is a direct continuation of the original's bin generator — the underlying geometry logic is Lev Mishin's.
 
-> **Screenshot:** Bin tab with a custom compartment grid configured.
-> ![Bin tab - custom compartments](images/bin-tab-custom-compartments.png)
+> <img src="images/bin-tab-custom-compartments.png" alt="Bin tab - custom compartments" width="450">
 
 ### Baseplate
 
@@ -69,8 +68,7 @@ Generates a parametric Gridfinity baseplate. Four types are available:
 - **Full** — solid extended bottom, with magnet and screw cutouts.
 - **Stackable** *(new in this fork)* — see below.
 
-> **Screenshot:** Baseplate tab, Features section, showing the plate type dropdown with all four options.
-> ![Baseplate tab - plate type options](images/baseplate-tab-plate-type.png)
+> <img src="images/baseplate-tab-plate-type.png" alt="Baseplate tab - plate type options" width="350">
 
 #### Stackable baseplates (new)
 
@@ -82,11 +80,9 @@ For best results, a **Clearance between baseplate and bin** of at least 1–1.5m
 
 > **Credit:** the split-mirror stacking technique used here is based on the method demonstrated by **James at [Clough42](https://www.youtube.com/@Clough42)** on YouTube, in [*Gridfinity in the Machine Shop: 3D Printed Metrology Toolbox Organization*](https://www.youtube.com/watch?v=RYA0xLryF-g). Many thanks for sharing it.
 
-> **Screenshot:** a generated stack of 3 Stackable baseplates in the Fusion viewport, interface layers visibly colored differently from the baseplates.
-> ![Stackable baseplate stack, 3 plates with colored interface layers](images/stackable-baseplate-stack.png)
->
-> **Screenshot:** Baseplate tab's Stacking section, showing Stack Count and Interface Layer Thickness fields.
-> ![Stackable baseplate tab settings](images/baseplate-tab-stacking-settings.png)
+> <img src="images/stackable-baseplate-stack.png" alt="Stackable baseplate stack, 3 plates with colored interface layers" width="450">
+
+> <img src="images/baseplate-tab-stacking-settings.png" alt="Stackable baseplate tab settings" width="350">
 
 ### Grid Optimizer (new)
 
@@ -99,18 +95,13 @@ If you're building a custom (non-standard-42mm) grid to fit a specific drawer or
 
 Dimension lists can be saved as named, reloadable sets (e.g. "Kitchen Drawers," "Workbench Cabinet") just like Bin and Baseplate configurations.
 
-> **Screenshot:** Grid Optimizer tab with a populated dimension list and calculated results.
-> ![Grid Optimizer tab with results](images/grid-optimizer-results.png)
+> <img src="images/grid-optimizer-results.png" alt="Grid Optimizer tab with results" width="450">
 
 ### Theme (new)
 
-Customize the palette's appearance. Choose **System** (follows your OS's light/dark setting automatically — the default), or one of the built-in themes: **Light**, **Dark**, **Midnight**, or **Sandstone**. You can also **import a custom `.theme.json`** file exported from any Theme Designer Pro–compatible tool — every theme you import is remembered and stays available in the dropdown across restarts, whether or not it's the one currently active.
+Customize the palette's appearance. Choose **System** (follows your OS's light/dark setting automatically — the default), or one of the built-in themes: **Light**, **Dark**, **Midnight**, or **Sandstone**. You can also **import a custom `.theme.json`** file exported from any Theme Designer Pro–compatible tool — every theme you import is remembered and stays available in the dropdown across restarts, whether or not it's the one currently active. $ sample themes are provides in the `resources/themes/` folder
 
-> **Screenshot:** Theme tab with the theme dropdown open, showing all built-in options plus an imported custom theme.
-> ![Theme tab with dropdown open](images/theme-tab-dropdown.png)
->
-> **Screenshot:** the same Bin tab shown side-by-side (or in sequence) under two or three different themes, to show the visual range.
-> ![Same tab under different themes](images/theme-comparison.png)
+> <img src="images/theme-tab-dropdown.png" alt="Theme tab with dropdown open" width="450">
 
 ---
 
@@ -126,8 +117,7 @@ Each of the Bin, Baseplate, and Grid Optimizer tabs has a **Configurations** (or
 
 Bin and Baseplate presets also remember the Common settings panel's values at the time they were saved (base unit, clearance, magnet size) and restore them on load — so loading a preset always reproduces the exact grid it was originally designed for, even if you've since changed the Common panel for other work.
 
-> **Screenshot:** Configurations section of the Baseplate tab, with the "Save As" prompt visible.
-> ![Configurations - Save As dialog](images/configurations-save-as.png)
+> <img src="images/configurations-save-as.png" alt="Configurations - Save As dialog" width="350">
 
 ---
 
@@ -142,8 +132,7 @@ To use it: hover over the component you want to change in the Fusion browser tre
 
 > **Note:** this requires the design to be in **Hybrid** design mode (Document Settings → Design → Hybrid) — this is what allows each generated part to own and carry its own settings. **Generate** will prompt you to switch modes if the active document isn't set to Hybrid; your entered field values are never lost when this happens, so you can simply switch modes and click Generate again.
 
-> **Screenshot:** the "Edit Active Component" button and the resulting edit banner showing which component is being edited.
-> ![Edit Active Component banner](images/edit-active-component-banner.png)
+> <img src="images/edit-active-component-banner.png" alt="Edit Active Component banner" width="400">
 
 ---
 
@@ -151,8 +140,8 @@ To use it: hover over the component you want to change in the Fusion browser tre
 
 *(Full gallery — see the placeholders embedded throughout this document above; this section can hold a consolidated set of additional wide/overview shots if useful when assembling the final PDF/HTML.)*
 
-> **Screenshot:** overview collage or additional supplementary screenshots as needed.
-> ![Additional screenshots](images/additional-overview.png)
+> **Screenshot:** [PLACEHOLDER] overview collage or additional supplementary screenshots as needed.
+> <img src="images/additional-overview.png" alt="Additional screenshots" width="350">
 
 ---
 

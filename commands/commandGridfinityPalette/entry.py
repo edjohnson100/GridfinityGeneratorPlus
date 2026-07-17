@@ -27,6 +27,7 @@ PANEL_ID = 'SolidCreatePanel'
 COMMAND_BESIDE_ID = 'ScriptsManagerCommand'
 
 ICON_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources', '')
+RESOURCES_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'resources')
 
 CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'commandConfig')
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
@@ -200,6 +201,10 @@ def start():
     addinConfig = configUtils.readConfig(CONFIG_FOLDER_PATH)
 
     cmd_def = ui.commandDefinitions.addButtonDefinition(CMD_ID, CMD_NAME, CMD_Description, ICON_FOLDER)
+
+    tool_clip_path = os.path.join(RESOURCES_FOLDER, '128x128.png')
+    if os.path.exists(tool_clip_path):
+        cmd_def.toolClipFilename = tool_clip_path
 
     futil.add_handler(cmd_def.commandCreated, command_created, local_handlers=local_handlers)
 
@@ -725,6 +730,15 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
             _send(palette, 'set_state', {
                 'tab': kind, 'form': form, 'source': 'edit_component', 'componentName': componentName,
             })
+
+            if kind in TABS_WITH_SHARED_COMMON:
+                commonOverrides = {k: form[k] for k in COMMON_FIELDS if k in form}
+                if commonOverrides:
+                    commonForm = _load_common()
+                    commonForm.update(commonOverrides)
+                    _save_common(commonForm)
+                    _send(palette, 'set_state', {'tab': 'common', 'form': commonForm, 'source': 'edit_component_common'})
+
             _send(palette, 'preview_status', {'tab': kind, 'active': True, 'adopted': True})
         except Exception:
             app.log(f'{CMD_NAME} edit_active_component failed:\n{traceback.format_exc()}')
