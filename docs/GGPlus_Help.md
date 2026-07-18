@@ -46,10 +46,6 @@ If you’ve used the original GridfinityGenerator, here’s what’s different:E
 
 ---
 
-## 
-
-## 
-
 ## General Usage Instructions
 
 **Install the add-in.** Unlike the original (distributed via the Fusion App Store), GridfinityGeneratorPlus is currently installed manually: in Fusion, go to **Utilities → Add-Ins → Scripts and Add-Ins**, and add this folder as an add-in. See [Installation / Uninstallation](#bookmark=id.q8d08gdrh1si) below for details.
