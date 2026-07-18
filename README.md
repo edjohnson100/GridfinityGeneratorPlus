@@ -76,6 +76,8 @@ Activate a previously generated Gridfinity part in the Fusion browser by hoverin
 
 * **Tip:** this requires the design to be in **Hybrid** design mode (Document Settings → Design → Hybrid). If you click **Generate** in a Part or Assembly design, the palette will prompt you to switch modes — your entered values aren't lost, so just switch and click Generate again.
 
+For the complete usage guide, including every tab, field, and workflow in detail, see [GGPlus_Help.md](docs/GGPlus_Help.md).
+
 ## Tech Stack
 
 For the fellow coders and makers out there, here is how GridfinityGeneratorPlus was built:
