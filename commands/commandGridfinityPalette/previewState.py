@@ -10,6 +10,16 @@ _preview_feature_tokens = []
 _preview_is_adopted = False
 _preview_original_name = None
 
+# Every distinct preview ever tracked this session (appended on track_preview(), never
+# overwritten), so resync() can recognize *any* of them reappearing after Undo/Redo --
+# not just the single most recently cleared one. A user who does Preview -> Generate ->
+# Preview -> Generate and then steps back several Undo's should still get the Clear
+# Preview button re-synced when the *first* preview resurfaces, not just the last.
+# Bounded so a long session doesn't grow this unboundedly; only the most recent entries
+# are realistically reachable by Undo anyway.
+_preview_history = []
+_PREVIEW_HISTORY_LIMIT = 50
+
 
 def track_preview(tab: str, tracked, adopted: bool = False, original_name: str = None):
     """tracked is either an Occurrence (new component was created) or a list of the
@@ -33,6 +43,15 @@ def track_preview(tab: str, tracked, adopted: bool = False, original_name: str =
     else:
         _preview_occurrence_token = None
         _preview_feature_tokens = [entity.entityToken for entity in tracked if entity]
+
+    _preview_history.append({
+        'tab': _preview_tab,
+        'occurrence_token': _preview_occurrence_token,
+        'feature_tokens': _preview_feature_tokens,
+        'is_adopted': _preview_is_adopted,
+        'original_name': _preview_original_name,
+    })
+    del _preview_history[:-_PREVIEW_HISTORY_LIMIT]
 
 
 def clear_preview(force: bool = True):
@@ -92,3 +111,76 @@ def clear_preview(force: bool = True):
 
 def has_preview() -> bool:
     return _preview_occurrence_token is not None or bool(_preview_feature_tokens)
+
+
+def get_preview_tab():
+    return _preview_tab
+
+
+def get_preview_adopted() -> bool:
+    return _preview_is_adopted
+
+
+def get_preview_occurrence_token():
+    return _preview_occurrence_token
+
+
+def _resolves(des: adsk.fusion.Design, occurrenceToken, featureTokens) -> bool:
+    if occurrenceToken is not None:
+        entities = des.findEntityByToken(occurrenceToken)
+        return bool(entities) and len(entities) > 0
+    if featureTokens:
+        # Any one surviving feature is enough to say "still there" -- Undo/Redo
+        # moves the whole group together, it won't partially resurrect it.
+        entities = des.findEntityByToken(featureTokens[0])
+        return bool(entities) and len(entities) > 0
+    return False
+
+
+def resync():
+    """Reconciles module-level tracking with the actual document state after an
+    Undo/Redo -- Fusion's undo/redo doesn't fire any per-mutation event we can hook,
+    so the palette's "Clear Preview" button can otherwise go stale: undoing an Update
+    Preview/Generate leaves has_preview() reporting True for a component that's gone,
+    and undoing far enough to resurrect an *earlier* preview (e.g. Preview -> Generate
+    -> Preview -> Generate, then several Undo's) leaves it reporting False even though
+    that earlier preview is back and clearable again.
+
+    Returns (changed, tab, active): `changed` is True if tracking was swapped, in
+    which case `tab` names the affected tab and `active` is its new has_preview()-
+    equivalent state -- exactly what the palette's 'preview_status' message expects.
+    """
+    global _preview_tab, _preview_occurrence_token, _preview_feature_tokens, _preview_is_adopted, _preview_original_name
+
+    des = adsk.fusion.Design.cast(app.activeProduct)
+    if des is None:
+        return False, None, False
+
+    dropped_tab = None
+    if has_preview() and not _resolves(des, _preview_occurrence_token, _preview_feature_tokens):
+        # The tracked preview/adopted component was undone away.
+        dropped_tab = _preview_tab
+        _preview_tab = None
+        _preview_occurrence_token = None
+        _preview_feature_tokens = []
+        _preview_is_adopted = False
+        _preview_original_name = None
+
+    if not has_preview():
+        # Look for any past preview attempt that's reappeared (in most-recently-
+        # tracked-first order), whether or not one was just dropped above -- e.g. an
+        # Undo can resurrect an earlier preview in a single step without the current
+        # slot having been tracking anything to begin with.
+        for entry in reversed(_preview_history):
+            if _resolves(des, entry['occurrence_token'], entry['feature_tokens']):
+                _preview_tab = entry['tab']
+                _preview_occurrence_token = entry['occurrence_token']
+                _preview_feature_tokens = entry['feature_tokens']
+                _preview_is_adopted = entry['is_adopted']
+                _preview_original_name = entry['original_name']
+                return True, _preview_tab, True
+
+    if dropped_tab is not None:
+        return True, dropped_tab, False
+
+    return False, None, False

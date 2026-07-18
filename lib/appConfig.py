@@ -42,3 +42,10 @@ def save_imported_theme(theme_id: str, theme_vars: dict):
     themes = load_imported_themes()
     themes[theme_id] = theme_vars
     configUtils.dumpJsonConfig(IMPORTED_THEMES_PATH, themes)
+
+
+def delete_imported_theme(theme_id: str):
+    themes = load_imported_themes()
+    if theme_id in themes:
+        del themes[theme_id]
+        configUtils.dumpJsonConfig(IMPORTED_THEMES_PATH, themes)

@@ -1,9 +1,12 @@
 # GridfinityGeneratorPlus
-**Version:** 1.0.0.0
 
-**Author:** Ed Johnson (Making With An EdJ)
+Version: 1.1.0.0
 
-**A persistent, dockable palette for generating parametric Gridfinity bins and baseplates in Fusion — with live preview, re-editable settings that travel with your design file, a custom grid-size optimizer, native stacking baseplates, and full UI theming.**
+By Ed Johnson (Making With An EdJ)
+
+July, 2026
+
+**A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
 <img src="GFPlusAppIcon.png" alt="App Icon" width="300">
 
@@ -20,18 +23,23 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 5: Theme tab.** Customize the palette's appearance — built-in themes, automatic OS dark-mode following, and support for importing your own custom themes.
 
 ---
-## ✨ What's New in v1.0.0
+## ✨ What's New in v1.1.0
 
-* **Persistent palette UI:** replaced the original's two separate command dialogs with a single dockable palette, with a shared Common settings panel so Bin and Baseplate grids always stay compatible.
-* **Edit Active Component:** activate a previously generated part in the browser, click one button, and the palette reloads the exact settings that built it — powered by settings stored on the component itself, not a separate file.
-* **Grid Optimizer tab:** recommends an optimal custom grid pitch from your own drawer/cabinet measurements, with half-bin credit and width/depth priority as explicit options.
-* **Stackable baseplate type:** a fourth baseplate type built to physically stack, with automatic interface-layer generation for multi-plate stacks.
-* **Theme tab:** built-in themes, OS dark-mode following, and importable custom themes.
-* **Generate now requires Hybrid design intent**, guaranteeing every generated part can carry its own settings forward.
+* **Grouped Undo:** Update Preview and Generate each collapse to a single Undo step, instead of leaving several separate entries on Fusion's Undo stack.
+* **Undo/Redo-aware preview tracking:** the Clear Preview button now stays in sync as you step through Fusion's Undo/Redo — including recognizing an earlier preview reappearing several steps back, not just the most recent one.
+* **Cross-tab preview warning:** switching to the other tab and clicking Update Preview or Generate now warns you first if it would discard an unfinalized preview you built on the tab you're leaving.
+* **Redesigned Configurations manager:** Load, Delete, and Save As now each open a focused dialog instead of sharing an inline dropdown, with a clear "Active config" status line — Update Current is now the only button that acts on the current selection directly.
+* **Custom themed dialogs:** every native browser confirm/prompt popup in the palette has been replaced with a themed HTML modal that matches whichever theme you have selected.
+* **Theme tab: font controls, export, and cleanup.** Choose a font family and base font size on top of any theme, export the current look (including your font tweaks, which now correctly round-trip on re-import) as a shareable `.theme.json` via a native Save dialog defaulted to `resources/themes/`, and remove imported themes you no longer want.
+* **Linked Factory Reset:** resetting Bin or Baseplate now also resets the shared Common settings (base unit, clearance, magnet size), and vice versa — previously each Factory Reset button only reset its own section, so a loaded custom-grid preset could leave Common looking un-reset.
+* **Sortable Grid Optimizer dimensions table:** click a column heading (Description/Width/Depth) to sort your dimension list, click again to reverse — the order you leave it in is what gets saved.
+* **Visual polish:** a more distinct tab bar in dark themes, and hint/error text that now scales with the base font size setting.
 
 *For the full development history and the reasoning behind each design decision, see [`docs/Dev_Notes.md`](docs/Dev_Notes.md).*
 
 ## Installation
+
+> **Tip:** For a stable, versioned copy, download the latest packaged release from the **Releases** link in the right-hand sidebar of this repo's GitHub page instead of using the green **Code** button above — the Code button always pulls the current `main` branch, which may include in-progress changes. Or, simply click this link to the [Releases page](https://github.com/edjohnson100/GridfinityGeneratorPlus/releases)
 
 ### Manual Installation Options
 
@@ -74,7 +82,7 @@ For the fellow coders and makers out there, here is how GridfinityGeneratorPlus 
 
 * **Language:** Python (Fusion API)
 * **Interface:** HTML/CSS/JavaScript (Palette)
-* **Data Storage:** Each generated part's settings are stored as a Fusion document attribute directly tied to the component, so they travel with the `.f3d` file itself. Add-in preferences (window geometry, active theme), saved configurations, and imported themes are stored locally as JSON alongside the add-in.
+* **Data Storage:** Each generated part's settings are stored as a Fusion component attribute directly tied to the component, so they travel with the `.f3d` file itself. Add-in preferences (window geometry, active theme), saved configurations, and imported themes are stored locally as JSON alongside the add-in.
 
 ## Acknowledgements & Credits
 

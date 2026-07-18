@@ -59,7 +59,7 @@
   --header-hover: #3a3a3a;
   --tab-bg: #2a2a2a;
   --tab-active-bg: #333333;
-  --tab-text: #aaaaaa;
+  --tab-text: #cccccc;
   --tab-active-text: #eeeeee;
 
   --btn-primary: #2b6cb0;
@@ -98,7 +98,7 @@
   --header-hover: #1e2c4d;
   --tab-bg: #16203a;
   --tab-active-bg: #1e2c4d;
-  --tab-text: #8fa3c0;
+  --tab-text: #adc3e6;
   --tab-active-text: #ffffff;
 
   --btn-primary: #4d7fdb;
@@ -137,7 +137,7 @@
   --header-hover: #eee2c8;
   --tab-bg: #eee2c8;
   --tab-active-bg: #fffdf8;
-  --tab-text: #7a6c58;
+  --tab-text: #816239;
   --tab-active-text: #4a3f30;
 
   --btn-primary: #c1712f;
@@ -169,6 +169,7 @@ body {
   padding: 8px;
   background: var(--bg-body);
   color: var(--text-main);
+  min-height: 2160px;
 }
 
 .hidden {
@@ -179,6 +180,11 @@ body {
   display: flex;
   gap: 4px;
   margin-bottom: 8px;
+  background: var(--row-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px 4px 0 0;
+  padding: 4px 4px 0;
+  background-color: var(--btn-primary);
 }
 
 .tab-button {
@@ -189,17 +195,21 @@ body {
   color: var(--tab-text);
   cursor: pointer;
   border-radius: 4px 4px 0 0;
+  opacity: 1;
 }
 
 .tab-button:hover:not(.active) {
   background: var(--header-hover);
+  opacity: 1;
 }
 
 .tab-button.active {
   background: var(--tab-active-bg);
   color: var(--tab-active-text);
   font-weight: bold;
-  border-bottom: 2px solid var(--btn-primary);
+  opacity: 1;
+  border-bottom: 4px solid var(--btn-primary);
+  box-shadow: 0 -1px 0 var(--btn-primary) inset;
 }
 
 .tab-panel {
@@ -293,7 +303,7 @@ input::placeholder {
 .field-error {
   display: block;
   color: var(--status-error-text);
-  font-size: 11px;
+  font-size: 0.92em;
   margin: -2px 0 4px;
 }
 
@@ -304,7 +314,7 @@ input::placeholder {
 .field-hint {
   display: block;
   color: var(--text-sub);
-  font-size: 11px;
+  font-size: 0.92em;
   font-style: italic;
   margin: -2px 0 4px;
 }
@@ -404,13 +414,28 @@ input::placeholder {
   background: var(--row-hover);
 }
 
+#optimizer-items-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+#optimizer-items-table th.sortable:hover {
+  background: var(--row-hover);
+}
+
+#optimizer-items-table th.sortable .sort-indicator {
+  display: inline-block;
+  width: 0.9em;
+  opacity: 0.6;
+}
+
 #bin-compartments-table input,
 #optimizer-items-table input[type="number"] {
-  width: 50px;
+  width: 60px;
 }
 
 #optimizer-items-table input[type="text"] {
-  width: 90px;
+  width: 100px;
 }
 
 #bin-compartments-table-wrapper button,
@@ -451,4 +476,91 @@ input::placeholder {
   color: var(--banner-warning-text);
   border: 1px solid var(--banner-warning-border);
   font-size: 11px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--row-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px 14px;
+  width: min(320px, 90vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.modal-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: var(--text-main);
+}
+
+.modal-body {
+  margin-bottom: 12px;
+  color: var(--text-main);
+  font-size: 12px;
+}
+
+.modal-body p {
+  margin: 0 0 8px;
+}
+
+.modal-body select,
+.modal-body input[type="text"] {
+  width: 100%;
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.modal-actions button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modal-btn-cancel {
+  background: var(--btn-secondary);
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--border-color);
+}
+
+.modal-btn-cancel:hover {
+  background: var(--btn-secondary-hover);
+}
+
+.modal-btn-confirm {
+  background: var(--btn-primary);
+  color: #fff;
+  border: none;
+}
+
+.modal-btn-confirm:hover {
+  background: var(--btn-primary-hover);
+}
+
+.modal-btn-confirm.danger {
+  background: var(--status-error-text);
+}
+
+.modal-btn-confirm.danger:hover {
+  filter: brightness(1.1);
 }

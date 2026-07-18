@@ -1,7 +1,7 @@
 {
  "heightUnit": 2.91,
- "binWidth": 1,
- "binLength": 1,
+ "binWidth": 2,
+ "binLength": 2,
  "binHeight": 1,
  "generateBody": true,
  "binType": "Hollow",
@@ -23,5 +23,10 @@
  "screwDiameter": 0.3,
  "hasMagnetCutouts": false,
  "hasMagnetCutoutsTabs": false,
- "compartments": []
+ "compartments": [],
+ "baseWidthUnit": 4.6,
+ "baseLengthUnit": 4.6,
+ "xyClearance": 0.025,
+ "magnetDiameter": 0.65,
+ "magnetDepth": 0.24
 }

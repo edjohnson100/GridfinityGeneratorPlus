@@ -20,7 +20,16 @@ ui = app.userInterface
 
 CMD_ID = f'{config.COMPANY_NAME}_{config.ADDIN_NAME}_cmdGridfinityPalette'
 CMD_NAME = 'GridfinityGeneratorPlus'
-CMD_Description = 'Create gridfinity bins and baseplates'
+CMD_Description = 'Designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren\'t lost to time.'
+
+# Fusion has no Revit-style "transaction group" API for scripts -- the documented way
+# to get several API calls collapsed into a single undo step outside of a command
+# dialog is to run them from a headless command's execute event handler (everything
+# done there is bundled into one undo transaction; see command_created()/open_palette()
+# above for the same "no dialog inputs -> Fusion auto-executes immediately" pattern
+# already used for the palette's own toolbar button). This command is never shown in
+# any UI -- it only exists to be .execute()'d from _run_grouped().
+UNDO_GROUP_CMD_ID = f'{config.COMPANY_NAME}_{config.ADDIN_NAME}_cmdUndoGroupRunner'
 
 WORKSPACE_ID = 'FusionSolidEnvironment'
 PANEL_ID = 'SolidCreatePanel'
@@ -28,12 +37,13 @@ COMMAND_BESIDE_ID = 'ScriptsManagerCommand'
 
 ICON_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources', '')
 RESOURCES_FOLDER = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'resources')
+THEMES_FOLDER = os.path.join(RESOURCES_FOLDER, 'themes')
 
 CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'commandConfig')
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
 
 PALETTE_TITLE = 'GridfinityGeneratorPlus'
-PALETTE_VERSION = 13
+PALETTE_VERSION = 18
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Local list of event handlers for the command button.
@@ -181,17 +191,31 @@ def _save_palette_geometry(palette: adsk.core.Palette):
 # appConfig.load_imported_themes()/save_imported_theme(), keyed by theme id, so
 # every theme ever imported survives a restart, not just whichever was active.
 THEME_CONFIG_KEY = 'theme'
-DEFAULT_THEME = {'name': 'System'}
+# fontFamily/fontSize mirror the --font-family/--font-size-base defaults in
+# style.css's :root block -- kept in sync manually since the CSS is the source of
+# truth for what "unmodified" looks like, this is just the fallback for a user who
+# has never touched the Theme tab's font controls.
+DEFAULT_THEME = {
+    'name': 'System',
+    'fontFamily': '-apple-system, "Segoe UI", Helvetica, Arial, sans-serif',
+    'fontSize': 12,
+}
 
 
 def _load_theme() -> dict:
     theme = appConfig.load().get(THEME_CONFIG_KEY, {})
-    return {'name': theme.get('name', DEFAULT_THEME['name'])}
+    return {
+        'name': theme.get('name', DEFAULT_THEME['name']),
+        'fontFamily': theme.get('fontFamily', DEFAULT_THEME['fontFamily']),
+        'fontSize': theme.get('fontSize', DEFAULT_THEME['fontSize']),
+    }
 
 
 def _save_theme(form: dict):
     appConfig.update({THEME_CONFIG_KEY: {
         'name': form.get('name', DEFAULT_THEME['name']),
+        'fontFamily': form.get('fontFamily', DEFAULT_THEME['fontFamily']),
+        'fontSize': form.get('fontSize', DEFAULT_THEME['fontSize']),
     }})
 
 
@@ -202,7 +226,7 @@ def start():
 
     cmd_def = ui.commandDefinitions.addButtonDefinition(CMD_ID, CMD_NAME, CMD_Description, ICON_FOLDER)
 
-    tool_clip_path = os.path.join(RESOURCES_FOLDER, '128x128.png')
+    tool_clip_path = os.path.join(RESOURCES_FOLDER, 'GFPlusAppIcon_192.png')
     if os.path.exists(tool_clip_path):
         cmd_def.toolClipFilename = tool_clip_path
 
@@ -212,6 +236,11 @@ def start():
     panel = workspace.toolbarPanels.itemById(PANEL_ID)
     control = panel.controls.addCommand(cmd_def, COMMAND_BESIDE_ID, False)
     control.isPromoted = addinConfig['UI'].getboolean('is_promoted')
+
+    undo_group_cmd_def = ui.commandDefinitions.addButtonDefinition(UNDO_GROUP_CMD_ID, 'GGPlus Undo Group Runner', '')
+    futil.add_handler(undo_group_cmd_def.commandCreated, _undo_group_command_created, local_handlers=local_handlers)
+
+    futil.add_handler(ui.commandTerminated, _on_command_terminated, local_handlers=local_handlers)
 
 
 # Executed when add-in is stopped.
@@ -230,6 +259,10 @@ def stop():
         command_control.deleteMe()
     if command_definition:
         command_definition.deleteMe()
+
+    undo_group_cmd_def = ui.commandDefinitions.itemById(UNDO_GROUP_CMD_ID)
+    if undo_group_cmd_def:
+        undo_group_cmd_def.deleteMe()
 
     try:
         previewState.clear_preview(force=False)
@@ -250,6 +283,75 @@ def command_created(args: adsk.core.CommandCreatedEventArgs):
     # This command has no dialog inputs of its own, so Fusion auto-executes it
     # immediately after creation instead of showing an empty dialog.
     futil.add_handler(args.command.execute, lambda _: open_palette(), local_handlers=local_handlers)
+
+
+# Whatever `_run_grouped()` currently wants run inside the undo-group runner
+# command's execute handler. There's only ever one pending job at a time --
+# `_run_grouped()` triggers the command synchronously (see command_created()
+# above: a command with no dialog inputs auto-executes immediately), so this
+# is set and consumed within the same call.
+_pending_grouped_work = None
+
+
+def _undo_group_command_created(args: adsk.core.CommandCreatedEventArgs):
+    # Same "no dialog inputs -> auto-executes immediately" shape as command_created().
+    futil.add_handler(args.command.execute, lambda _: _run_pending_grouped_work(), local_handlers=local_handlers)
+
+
+def _run_pending_grouped_work():
+    global _pending_grouped_work
+    work = _pending_grouped_work
+    _pending_grouped_work = None
+    if work:
+        work()
+
+
+def _run_grouped(work, name: str):
+    """Runs `work` (a zero-argument callable) inside the undo-group runner command's
+    execute event handler, so every Fusion API call it makes is bundled into a single
+    entry on the undo stack. Fusion has no Revit-style transaction-group API for
+    scripts/add-ins -- this is the documented workaround for code that isn't already
+    running inside a command's own execute handler (e.g. code triggered from a
+    palette's incomingFromHTML handler, as here).
+
+    `name` becomes the label shown for this entry in the Undo dropdown -- the command
+    definition's name is retargeted just before each execute() call since this one
+    hidden command definition is reused for every grouped operation.
+    """
+    global _pending_grouped_work
+    _pending_grouped_work = work
+    cmd_def = ui.commandDefinitions.itemById(UNDO_GROUP_CMD_ID)
+    cmd_def.name = name
+    cmd_def.execute()
+
+
+def _on_command_terminated(args: adsk.core.ApplicationCommandEventArgs):
+    # Fusion's Undo/Redo don't fire any per-mutation event, so this is the only hook
+    # available for noticing that previewState's tracking may now be stale (e.g. an
+    # Update Preview got undone, or a Clear Preview got undone) -- see
+    # previewState.resync() for the reconciliation logic.
+    #
+    # Deliberately not filtered to commandId in ('UndoCommand', 'RedoCommand'): the
+    # keyboard shortcut reports 'UndoCommand', but clicking the toolbar Undo arrow
+    # does not, so it was silently missed. resync() is cheap (a couple of
+    # findEntityByToken lookups) and a no-op unless tracking actually needs to
+    # change, so running it after every completed command is safe.
+    if args.terminationReason != adsk.core.CommandTerminationReason.CompletedTerminationReason:
+        return
+
+    try:
+        changed, tab, active = previewState.resync()
+    except Exception:
+        futil.log(f'{CMD_NAME} preview resync after undo/redo failed:\n{traceback.format_exc()}')
+        return
+
+    if not changed or not tab:
+        return
+
+    palette = ui.palettes.itemById(config.PALETTE_ID)
+    if palette:
+        adopted = previewState.get_preview_adopted() if active else False
+        _send(palette, 'preview_status', {'tab': tab, 'active': active, 'adopted': adopted})
 
 
 def open_palette():
@@ -296,7 +398,7 @@ def _ensure_safe_to_mutate():
 
 def _ensure_hybrid_design_intent():
     # Generate (not Preview) requires Hybrid design intent -- it's what lets every
-    # generated component carry its own settings as a document attribute (see
+    # generated component carry its own settings as a component attribute (see
     # generation.GENERATED_FORM_ATTR_*), so a saved file can be reopened, shared, or
     # revisited months later and still be editable via "Edit Active Component". The
     # palette stays open across document tabs, so this is checked at Generate time
@@ -444,6 +546,14 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                 if themeId and isinstance(themeVars, dict):
                     appConfig.save_imported_theme(themeId, themeVars)
 
+            elif action == 'remove_imported_theme':
+                themeId = data.get('id')
+                if themeId:
+                    appConfig.delete_imported_theme(themeId)
+
+            elif action == 'export_theme':
+                self._handle_export_theme(palette, data.get('id'), data.get('vars'), data.get('fontFamily'), data.get('fontSize'))
+
             elif action == 'update_common':
                 _save_common(form)
                 _send(palette, 'set_state', {
@@ -489,6 +599,10 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                 self._handle_delete_config(palette, tab, data.get('name'))
 
             elif action == 'factory_reset':
+                # Bin/Baseplate share the Common panel's grid settings, so resetting
+                # either side alone would leave the other half stale (e.g. resetting
+                # Bin back to defaults while Common is still on a loaded 92mm preset).
+                # Reset both halves together whenever either is involved.
                 if tab == 'common':
                     configUtils.dumpJsonConfig(COMMON_CONFIG_PATH, dict(DEFAULT_COMMON))
                     _send(palette, 'set_state', {
@@ -496,6 +610,14 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                         'form': dict(DEFAULT_COMMON),
                         'source': 'factory_reset',
                     })
+                    for sharedTab in TABS_WITH_SHARED_COMMON:
+                        _set_active_config_name(sharedTab, None)
+                        _send(palette, 'set_state', {
+                            'tab': sharedTab,
+                            'form': dict(DEFAULTS_BY_TAB[sharedTab]),
+                            'source': 'factory_reset',
+                        })
+                        _send_config_list(palette, sharedTab)
                 else:
                     _set_active_config_name(tab, None)
                     _send(palette, 'set_state', {
@@ -504,9 +626,36 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                         'source': 'factory_reset',
                     })
                     _send_config_list(palette, tab)
+                    if tab in TABS_WITH_SHARED_COMMON:
+                        configUtils.dumpJsonConfig(COMMON_CONFIG_PATH, dict(DEFAULT_COMMON))
+                        _send(palette, 'set_state', {
+                            'tab': 'common',
+                            'form': dict(DEFAULT_COMMON),
+                            'source': 'factory_reset',
+                        })
 
         except Exception:
             app.log(f'{CMD_NAME} HTMLEventHandler failed:\n{traceback.format_exc()}')
+
+    def _handle_export_theme(self, palette: adsk.core.Palette, themeId: str, themeVars: dict, fontFamily: str, fontSize):
+        if not themeId or not isinstance(themeVars, dict):
+            return
+        try:
+            dialog = ui.createFileDialog()
+            dialog.title = 'Export Theme'
+            dialog.filter = 'Theme files (*.theme.json)'
+            dialog.initialDirectory = THEMES_FOLDER if os.path.isdir(THEMES_FOLDER) else RESOURCES_FOLDER
+            dialog.initialFilename = f'{themeId}.theme.json'
+            if dialog.showSave() != adsk.core.DialogResults.DialogOK:
+                return
+            filename = dialog.filename
+            with open(filename, 'w') as themeFile:
+                json.dump({'id': themeId, 'vars': themeVars, 'fontFamily': fontFamily, 'fontSize': fontSize}, themeFile, indent=2)
+            _send(palette, 'theme_export_result', {'path': filename})
+            _send(palette, 'notification', {'type': 'success', 'message': f'Exported theme to {os.path.basename(filename)}'})
+        except Exception:
+            app.log(f'{CMD_NAME} theme export failed:\n{traceback.format_exc()}')
+            _send(palette, 'notification', {'type': 'error', 'message': 'Failed to export theme'})
 
     def _handle_save_as(self, palette: adsk.core.Palette, tab: str, form: dict, rawName: str):
         try:
@@ -595,19 +744,22 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
             _send(palette, 'notification', {'type': 'error', 'message': message})
             return
 
-        try:
-            previewState.clear_preview()
-            occurrence = generation.create_and_build(tab, form, is_preview=True)
-            previewState.track_preview(tab, occurrence)
-            _send(palette, 'preview_status', {'tab': tab, 'active': True, 'adopted': False})
-        except UnsupportedDesignTypeException:
-            _send(palette, 'notification', {
-                'type': 'error',
-                'message': 'Design type is unsupported. Please enable the timeline feature to proceed.',
-            })
-        except Exception:
-            app.log(f'{CMD_NAME} update_preview failed:\n{traceback.format_exc()}')
-            _send(palette, 'notification', {'type': 'error', 'message': getErrorMessage()})
+        def work():
+            try:
+                previewState.clear_preview()
+                occurrence = generation.create_and_build(tab, form, is_preview=True)
+                previewState.track_preview(tab, occurrence)
+                _send(palette, 'preview_status', {'tab': tab, 'active': True, 'adopted': False})
+            except UnsupportedDesignTypeException:
+                _send(palette, 'notification', {
+                    'type': 'error',
+                    'message': 'Design type is unsupported. Please enable the timeline feature to proceed.',
+                })
+            except Exception:
+                app.log(f'{CMD_NAME} update_preview failed:\n{traceback.format_exc()}')
+                _send(palette, 'notification', {'type': 'error', 'message': getErrorMessage()})
+
+        _run_grouped(work, f'GGPlus Preview {tab.capitalize()}')
 
     def _handle_generate(self, palette: adsk.core.Palette, tab: str, form: dict):
         result = VALIDATE_BY_TAB[tab](form)
@@ -629,19 +781,22 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
             _send(palette, 'notification', {'type': 'error', 'message': hybridMessage})
             return
 
-        try:
-            previewState.clear_preview()
-            generation.create_and_build(tab, form)
-            _send(palette, 'preview_status', {'tab': tab, 'active': False})
-            _send(palette, 'notification', {'type': 'success', 'message': 'Generated'})
-        except UnsupportedDesignTypeException:
-            _send(palette, 'notification', {
-                'type': 'error',
-                'message': 'Design type is unsupported. Please enable the timeline feature to proceed.',
-            })
-        except Exception:
-            app.log(f'{CMD_NAME} generate failed:\n{traceback.format_exc()}')
-            _send(palette, 'notification', {'type': 'error', 'message': getErrorMessage()})
+        def work():
+            try:
+                previewState.clear_preview()
+                generation.create_and_build(tab, form)
+                _send(palette, 'preview_status', {'tab': tab, 'active': False})
+                _send(palette, 'notification', {'type': 'success', 'message': 'Generated'})
+            except UnsupportedDesignTypeException:
+                _send(palette, 'notification', {
+                    'type': 'error',
+                    'message': 'Design type is unsupported. Please enable the timeline feature to proceed.',
+                })
+            except Exception:
+                app.log(f'{CMD_NAME} generate failed:\n{traceback.format_exc()}')
+                _send(palette, 'notification', {'type': 'error', 'message': getErrorMessage()})
+
+        _run_grouped(work, f'GGPlus Generate {tab.capitalize()}')
 
     def _handle_optimize(self, palette: adsk.core.Palette, form: dict):
         result = validation.validate_optimizer(form)
@@ -719,6 +874,23 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                 return
             occurrence = occurrences.item(0)
             componentName = comp.name
+
+            # This is the live, not-yet-finalized preview itself (Update Preview was
+            # clicked, then the user activated the PREVIEW_ component and hit Edit
+            # Active Component). clear_preview(force=False) below only preserves
+            # *adopted* components -- a fresh preview is always deleted -- so adopting
+            # it here would destroy the very component we're about to rename/adopt.
+            # Bail out instead of crashing on the now-deleted comp.
+            if (
+                not previewState.get_preview_adopted()
+                and previewState.has_preview()
+                and previewState.get_preview_occurrence_token() == occurrence.entityToken
+            ):
+                _send(palette, 'notification', {
+                    'type': 'error',
+                    'message': 'This component is already an active preview -- use Update Preview, Generate, or Clear Preview instead.',
+                })
+                return
 
             # Release (not delete) whatever was previously tracked, then return to
             # root so the adopted occurrence isn't "inside" the active edit context.

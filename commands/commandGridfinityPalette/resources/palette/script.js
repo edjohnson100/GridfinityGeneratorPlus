@@ -103,12 +103,16 @@ const state = {
         optimizer: {
             minSize: 3.0, maxSize: 7.5, allowHalfBins: true, compareStandard: false, priority: 'balanced', items: [],
         },
-        theme: { name: 'System' },
+        theme: { name: 'System', fontFamily: '-apple-system, "Segoe UI", Helvetica, Arial, sans-serif', fontSize: 12 },
     },
     fieldErrors: { bin: {}, baseplate: {}, optimizer: {} },
     valid: { bin: true, baseplate: true, optimizer: true },
     configs: { bin: [], baseplate: [], optimizer: [] },
     activeConfig: { bin: null, baseplate: null, optimizer: null },
+    // Which tab (if any) currently owns the single shared preview slot -- used to
+    // warn before Update Preview/Generate on the *other* tab silently discards it.
+    previewTab: null,
+    previewAdopted: false,
 };
 
 const validateDebounceTimers = {};
@@ -143,6 +147,8 @@ window.fusionJavaScriptHandler = {
                 onConfigList(parsed);
             } else if (action === 'optimizer_result') {
                 renderOptimizerResults(parsed);
+            } else if (action === 'theme_export_result') {
+                document.getElementById('theme-import-hint').textContent = `Exported to "${parsed.path}"`;
             }
             return 'OK';
         } catch (e) {
@@ -157,12 +163,20 @@ function onSetState(payload) {
     const cmForm = payload.form;
     if (tab === 'theme') {
         state.forms.theme = cmForm;
+        // Strip any font vars persisted by an older version of the import flow --
+        // otherwise a previously-imported theme's baked-in font would still
+        // out-specificity applyFontOverrides below (see THEME_VAR_NAMES comment).
         Object.entries(payload.importedThemes || {}).forEach(([id, vars]) => {
-            importedThemes[id] = vars;
+            const cleanVars = { ...vars };
+            delete cleanVars['--font-family'];
+            delete cleanVars['--font-size-base'];
+            importedThemes[id] = cleanVars;
             ensureThemeOption(id, `${id} (imported)`);
         });
         renderForm('theme');
         applyTheme(cmForm.name, importedThemes[cmForm.name] || null);
+        applyFontOverrides(cmForm.fontFamily, cmForm.fontSize);
+        updateThemeRemoveButtonState();
         return;
     }
     state.forms[tab] = cmForm;
@@ -213,6 +227,8 @@ function onPreviewStatus(payload) {
     document.querySelectorAll('.clear-preview-button').forEach(btn => {
         btn.disabled = !payload.active;
     });
+    state.previewTab = payload.active ? payload.tab : null;
+    state.previewAdopted = payload.active && !!payload.adopted;
     if (!payload.active) {
         setEditBanner('bin', null);
         setEditBanner('baseplate', null);
@@ -225,46 +241,161 @@ function onConfigList(payload) {
     const tab = payload.tab;
     state.configs[tab] = payload.configs || [];
     state.activeConfig[tab] = payload.activeConfig || null;
-    renderConfigManager(tab);
+    renderConfigStatus(tab);
 }
 
-function renderConfigManager(tab) {
-    const select = document.getElementById(`${tab}-config-select`);
+// No inline dropdown anymore -- Load/Delete open a picker modal sourced from
+// state.configs[tab] directly, so this just renders the status line and the
+// Update Current button's enabled state.
+function renderConfigStatus(tab) {
     const active = state.activeConfig[tab];
-    const previousValue = select.value;
-    select.innerHTML = '';
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = state.configs[tab].length ? 'Select a config…' : 'No saved configs';
-    select.appendChild(placeholder);
-    state.configs[tab].forEach(name => {
-        const option = document.createElement('option');
-        option.value = name;
-        option.textContent = name;
-        select.appendChild(option);
-    });
-    if (active && state.configs[tab].includes(active)) {
-        select.value = active;
-    } else if (state.configs[tab].includes(previousValue)) {
-        select.value = previousValue;
-    } else {
-        select.value = '';
-    }
-
     const activeLabel = document.getElementById(`${tab}-config-active`);
-    activeLabel.textContent = active ? `Active: ${active}` : 'Active: (none, using defaults)';
+    activeLabel.innerHTML = active
+        ? `Active config: <strong>${escapeHtml(active)}</strong>`
+        : 'Active config: <em>(none, using defaults)</em>';
 
     document.getElementById(`${tab}-config-update`).disabled = !active;
 }
 
-function showNotification(type, message) {
-    const el = document.getElementById('notification');
+// The top notification bar sits above the tabs, out of view once the palette is
+// scrolled down to the action buttons -- also render into a second bar local to the
+// active tab (just above its Configurations/Saved sets section, near where Generate/
+// Update Preview/config buttons actually get clicked) so the message is visible
+// without scrolling back up.
+function setNotificationEl(el, type, message) {
+    if (!el) return;
     el.textContent = message;
     el.className = `notification ${type}`;
-    clearTimeout(showNotification._timer);
-    showNotification._timer = setTimeout(() => {
+    el.classList.remove('hidden');
+    clearTimeout(el._notificationTimer);
+    el._notificationTimer = setTimeout(() => {
         el.classList.add('hidden');
     }, 5000);
+}
+
+function showNotification(type, message) {
+    setNotificationEl(document.getElementById('notification'), type, message);
+    setNotificationEl(document.getElementById(`${state.activeTab}-notification`), type, message);
+}
+
+// ---- Modal component (shared overlay for confirm/prompt/picker dialogs) ----
+// Replaces window.confirm/window.prompt with a themed HTML modal. Only one modal
+// can be open at a time -- every call site awaits it to completion before the next
+// user action could open another, so this isn't a real constraint in practice.
+let _modalOpen = false;
+let _modalResolve = null;
+let _modalPreviouslyFocused = null;
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function _modalTrapTab(e) {
+    const modal = document.querySelector('#modal-overlay .modal');
+    const focusable = modal.querySelectorAll('button, input, select, [tabindex]:not([tabindex="-1"])');
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+    }
+}
+
+function _modalKeydown(e) {
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        _closeModal(null);
+    } else if (e.key === 'Enter') {
+        // Ignore Enter while focus is on Cancel, so tabbing there and pressing
+        // Enter doesn't accidentally confirm instead.
+        if (document.activeElement === document.getElementById('modal-btn-cancel')) return;
+        e.preventDefault();
+        document.getElementById('modal-btn-confirm').click();
+    } else if (e.key === 'Tab') {
+        _modalTrapTab(e);
+    }
+}
+
+function _closeModal(value) {
+    if (!_modalOpen) return;
+    _modalOpen = false;
+    document.getElementById('modal-overlay').classList.add('hidden');
+    document.getElementById('modal-body').innerHTML = '';
+    document.getElementById('modal-btn-confirm').classList.remove('danger');
+    document.removeEventListener('keydown', _modalKeydown);
+    if (_modalPreviouslyFocused && _modalPreviouslyFocused.focus) {
+        _modalPreviouslyFocused.focus();
+    }
+    const resolve = _modalResolve;
+    _modalResolve = null;
+    if (resolve) resolve(value);
+}
+
+function _openModal({ title, bodyHtml, confirmLabel, danger, getValue, onOpen }) {
+    if (_modalOpen) {
+        console.error('_openModal called while a modal is already open');
+        return Promise.resolve(null);
+    }
+    _modalOpen = true;
+    _modalPreviouslyFocused = document.activeElement;
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').innerHTML = bodyHtml;
+    const confirmBtn = document.getElementById('modal-btn-confirm');
+    confirmBtn.textContent = confirmLabel || 'OK';
+    confirmBtn.classList.toggle('danger', !!danger);
+    document.getElementById('modal-overlay').classList.remove('hidden');
+
+    return new Promise(resolve => {
+        _modalResolve = resolve;
+        confirmBtn.onclick = () => _closeModal(getValue ? getValue() : true);
+        document.getElementById('modal-btn-cancel').onclick = () => _closeModal(null);
+        document.getElementById('modal-overlay').onclick = e => {
+            if (e.target.id === 'modal-overlay') _closeModal(null);
+        };
+        document.addEventListener('keydown', _modalKeydown);
+        if (onOpen) onOpen();
+    });
+}
+
+function showConfirmModal(message, opts = {}) {
+    return _openModal({
+        title: opts.title || 'Confirm',
+        bodyHtml: `<p>${escapeHtml(message)}</p>`,
+        confirmLabel: opts.confirmLabel || 'OK',
+        danger: !!opts.danger,
+        getValue: () => true,
+        onOpen: () => document.getElementById('modal-btn-confirm').focus(),
+    }).then(v => !!v);
+}
+
+function showPromptModal(message, defaultValue, opts = {}) {
+    return _openModal({
+        title: opts.title || 'Enter a name',
+        bodyHtml: `<p>${escapeHtml(message)}</p><input type="text" id="modal-prompt-input" value="${escapeHtml(defaultValue || '')}">`,
+        confirmLabel: opts.confirmLabel || 'OK',
+        getValue: () => document.getElementById('modal-prompt-input').value.trim(),
+        onOpen: () => {
+            const input = document.getElementById('modal-prompt-input');
+            input.focus();
+            input.select();
+        },
+    }).then(v => (!v ? null : v));
+}
+
+function showPickerModal(message, optionsList, opts = {}) {
+    const optionsHtml = optionsList.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+    return _openModal({
+        title: opts.title || 'Select a config',
+        bodyHtml: `<p>${escapeHtml(message)}</p><select id="modal-picker-select" size="${Math.min(optionsList.length, 8)}">${optionsHtml}</select>`,
+        confirmLabel: opts.confirmLabel || 'OK',
+        danger: !!opts.danger,
+        getValue: () => document.getElementById('modal-picker-select').value,
+        onOpen: () => document.getElementById('modal-picker-select').focus(),
+    });
 }
 
 // ---- Form <-> DOM ----
@@ -309,6 +440,9 @@ function writeFormToDom(tab, displayForm) {
         updateBaseplateConditionalVisibility();
     }
     if (tab === 'optimizer') {
+        // A freshly loaded list's saved order isn't necessarily sorted by whatever
+        // column was last clicked in this session -- don't claim otherwise.
+        optimizerSort = { field: null, dir: 1 };
         renderOptimizerItemsTable(displayForm.items || []);
     }
 }
@@ -445,6 +579,46 @@ document.getElementById('bin.compartmentsGridType').addEventListener('change', (
 });
 
 // ---- Grid Optimizer: dimension list ----
+// Sorting is on-demand only (click a column header) -- the result is a literal
+// row reorder, not a persisted "sort by X" rule, so it round-trips for free through
+// the existing readOptimizerItemsFromDom/save/load path with no format changes.
+let optimizerSort = { field: null, dir: 1 };
+
+function sortOptimizerRows(rows) {
+    if (!optimizerSort.field) return rows;
+    const { field, dir } = optimizerSort;
+    return [...rows].sort((a, b) => {
+        if (field === 'description') {
+            const av = (a.description || '').toLowerCase();
+            const bv = (b.description || '').toLowerCase();
+            return av < bv ? -dir : av > bv ? dir : 0;
+        }
+        return ((a[field] || 0) - (b[field] || 0)) * dir;
+    });
+}
+
+function updateOptimizerSortIndicators() {
+    document.querySelectorAll('#optimizer-items-table th.sortable').forEach(th => {
+        const indicator = th.querySelector('.sort-indicator');
+        if (th.dataset.sortField === optimizerSort.field) {
+            indicator.textContent = optimizerSort.dir === 1 ? '▲' : '▼';
+        } else {
+            indicator.textContent = '';
+        }
+    });
+}
+
+document.querySelectorAll('#optimizer-items-table th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+        const field = th.dataset.sortField;
+        optimizerSort = optimizerSort.field === field
+            ? { field, dir: -optimizerSort.dir }
+            : { field, dir: 1 };
+        renderOptimizerItemsTable(sortOptimizerRows(readOptimizerItemsFromDom()));
+        requestValidation('optimizer');
+    });
+});
+
 function readOptimizerItemsFromDom() {
     const rows = [];
     document.querySelectorAll('#optimizer-items-table tbody tr').forEach(tr => {
@@ -504,12 +678,13 @@ function renderOptimizerItemsTable(rows) {
 
         tbody.appendChild(tr);
     });
+    updateOptimizerSortIndicators();
 }
 
 document.getElementById('optimizer-items-add').addEventListener('click', () => {
     const items = readOptimizerItemsFromDom();
     items.push({ description: '', width: 100, depth: 100 });
-    renderOptimizerItemsTable(items);
+    renderOptimizerItemsTable(sortOptimizerRows(items));
     requestValidation('optimizer');
 });
 
@@ -681,8 +856,27 @@ document.querySelectorAll('#common-panel input[id^="common."]').forEach(el => {
 });
 
 // ---- Action buttons ----
+function tabLabel(tab) {
+    return tab === 'bin' ? 'Bin' : tab === 'baseplate' ? 'Baseplate' : tab;
+}
+
+// Update Preview/Generate replace the single shared preview slot outright -- if it
+// currently belongs to the *other* tab, doing this silently discards that unlocked
+// work. Tab switching itself is left unwarned (the user may just be peeking at the
+// other tab's settings), only the actions that would actually destroy it are.
+async function confirmPreviewReplace(action, tab) {
+    if ((action !== 'update_preview' && action !== 'generate') || !state.previewTab || state.previewTab === tab) {
+        return true;
+    }
+    const verb = state.previewAdopted ? 'discard your in-progress edit of' : 'discard the unlocked preview for';
+    return showConfirmModal(`This will ${verb} the ${tabLabel(state.previewTab)} tab. Continue?`, {
+        title: 'Replace preview?',
+        confirmLabel: 'Continue',
+    });
+}
+
 document.querySelectorAll('button[data-action]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
         const action = btn.dataset.action;
         const tab = btn.dataset.tab;
         if (!tab) {
@@ -693,6 +887,7 @@ document.querySelectorAll('button[data-action]').forEach(btn => {
             sendToFusion(action, { tab });
             return;
         }
+        if (!(await confirmPreviewReplace(action, tab))) return;
         const cmForm = readTabFormMergedWithCommon(tab);
         state.forms[tab] = cmForm;
         sendToFusion(action, { tab, form: cmForm });
@@ -700,16 +895,19 @@ document.querySelectorAll('button[data-action]').forEach(btn => {
 });
 
 // ---- Config manager buttons ----
+// Load/Delete/Save As all open a modal instead of acting on an inline dropdown --
+// only Update Current acts directly on the currently active config, with no dialog.
 document.querySelectorAll('button[data-config-action]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
         const configAction = btn.dataset.configAction;
         const tab = btn.dataset.tab;
-        const select = document.getElementById(`${tab}-config-select`);
-        const selectedName = select.value;
 
         if (configAction === 'save_as') {
             const defaultName = state.activeConfig[tab] || '';
-            const name = window.prompt('Save config as:', defaultName);
+            const name = await showPromptModal('Save config as:', defaultName, {
+                title: 'Save config as',
+                confirmLabel: 'Save',
+            });
             if (!name) return;
             const cmForm = readTabFormMergedWithCommon(tab);
             state.forms[tab] = cmForm;
@@ -719,24 +917,54 @@ document.querySelectorAll('button[data-config-action]').forEach(btn => {
             state.forms[tab] = cmForm;
             sendToFusion('update_current_config', { tab, form: cmForm });
         } else if (configAction === 'load') {
-            if (!selectedName) {
-                showNotification('error', 'Select a config to load');
+            if (!state.configs[tab].length) {
+                showNotification('error', 'No saved configs to load');
                 return;
             }
-            sendToFusion('load_config', { tab, name: selectedName });
+            const name = await showPickerModal('Choose a config to load:', state.configs[tab], {
+                title: 'Load config',
+                confirmLabel: 'Load',
+            });
+            if (!name) return;
+            sendToFusion('load_config', { tab, name });
         } else if (configAction === 'delete') {
-            if (!selectedName) {
-                showNotification('error', 'Select a config to delete');
+            if (!state.configs[tab].length) {
+                showNotification('error', 'No saved configs to delete');
                 return;
             }
-            if (!window.confirm(`Delete config "${selectedName}"?`)) return;
-            sendToFusion('delete_config', { tab, name: selectedName });
+            const name = await showPickerModal('Choose a config to delete:', state.configs[tab], {
+                title: 'Delete config',
+                confirmLabel: 'Delete',
+                danger: true,
+            });
+            if (!name) return;
+            sendToFusion('delete_config', { tab, name });
         }
     });
 });
 
 // ---- Theme (Theme Designer Pro standard: CSS vars + data-theme attribute) ----
 const importedThemes = {};
+const BUILTIN_THEME_NAMES = ['System', 'Light', 'Dark', 'Midnight', 'Sandstone'];
+// Every color CSS custom property style.css's :root block actually declares -- kept
+// in sync with that block by hand. Used to snapshot the full effective theme's colors
+// when exporting. Deliberately excludes --font-family/--font-size-base: those are
+// independent Font Family/Size controls (see applyFontOverrides), sent/restored as
+// their own top-level export fields instead -- baking them in here previously let a
+// theme's font silently out-specificity the independent controls on import (higher
+// CSS specificity of :root[data-theme=X] vs plain :root), so font never reliably
+// round-tripped.
+const THEME_VAR_NAMES = [
+    '--bg-body', '--text-main', '--text-sub', '--border-color',
+    '--row-bg', '--row-border', '--row-hover',
+    '--input-bg', '--input-border', '--input-text', '--input-placeholder',
+    '--header-hover', '--tab-bg', '--tab-active-bg', '--tab-text', '--tab-active-text',
+    '--btn-primary', '--btn-primary-hover', '--btn-secondary', '--btn-secondary-hover', '--btn-secondary-text',
+    '--status-success-bg', '--status-success-text',
+    '--status-error-bg', '--status-error-text',
+    '--status-info-bg', '--status-info-text',
+    '--banner-warning-bg', '--banner-warning-text', '--banner-warning-border',
+];
 let systemThemeMediaQuery = null;
 
 function systemThemeListener(e) {
@@ -789,6 +1017,25 @@ function applyTheme(name, customVars) {
     }
 }
 
+// Font family/size are edited independently of which theme is selected -- applied
+// as a plain :root override so they take effect on top of any theme (built-in or
+// imported), rather than being tied to a specific data-theme value like
+// injectCustomTheme's per-theme color overrides are.
+function applyFontOverrides(fontFamily, fontSize) {
+    let styleTag = document.getElementById('font-overrides');
+    if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'font-overrides';
+        document.head.appendChild(styleTag);
+    }
+    styleTag.textContent = `:root { --font-family: ${fontFamily}; --font-size-base: ${fontSize}px; }`;
+}
+
+function updateThemeRemoveButtonState() {
+    const name = state.forms.theme.name;
+    document.getElementById('theme-remove').disabled = BUILTIN_THEME_NAMES.includes(name) || !(name in importedThemes);
+}
+
 function ensureThemeOption(name, label) {
     const select = document.getElementById('theme.name');
     let opt = Array.from(select.options).find(o => o.value === name);
@@ -802,10 +1049,25 @@ function ensureThemeOption(name, label) {
 
 document.getElementById('theme.name').addEventListener('change', () => {
     const name = document.getElementById('theme.name').value;
-    state.forms.theme = { name };
+    state.forms.theme = { ...state.forms.theme, name };
     applyTheme(name, importedThemes[name] || null);
+    updateThemeRemoveButtonState();
     sendToFusion('update_theme', { form: state.forms.theme });
     document.getElementById('theme-import-hint').textContent = '';
+});
+
+document.getElementById('theme.fontFamily').addEventListener('change', () => {
+    const fontFamily = document.getElementById('theme.fontFamily').value;
+    state.forms.theme = { ...state.forms.theme, fontFamily };
+    applyFontOverrides(state.forms.theme.fontFamily, state.forms.theme.fontSize);
+    sendToFusion('update_theme', { form: state.forms.theme });
+});
+
+document.getElementById('theme.fontSize').addEventListener('change', () => {
+    const fontSize = parseFloat(document.getElementById('theme.fontSize').value);
+    state.forms.theme = { ...state.forms.theme, fontSize };
+    applyFontOverrides(state.forms.theme.fontFamily, state.forms.theme.fontSize);
+    sendToFusion('update_theme', { form: state.forms.theme });
 });
 
 document.getElementById('theme-import').addEventListener('click', () => {
@@ -822,12 +1084,35 @@ document.getElementById('theme-import-input').addEventListener('change', (evt) =
             if (!data || !data.id || !data.vars) {
                 throw new Error('Missing "id" or "vars"');
             }
-            importedThemes[data.id] = data.vars;
+            // Strip any font vars baked into older exports -- font is independent of
+            // theme colors now (see THEME_VAR_NAMES comment), but fall back to reading
+            // them out of vars for files exported before that change.
+            const vars = { ...data.vars };
+            const legacyFontFamily = vars['--font-family'];
+            const legacyFontSize = vars['--font-size-base'];
+            delete vars['--font-family'];
+            delete vars['--font-size-base'];
+            const fontFamily = data.fontFamily || legacyFontFamily || state.forms.theme.fontFamily;
+            const fontSize = data.fontSize != null
+                ? Number(data.fontSize)
+                : (legacyFontSize ? parseFloat(legacyFontSize) : state.forms.theme.fontSize);
+
+            importedThemes[data.id] = vars;
             ensureThemeOption(data.id, `${data.id} (imported)`);
             document.getElementById('theme.name').value = data.id;
-            state.forms.theme = { name: data.id };
-            applyTheme(data.id, data.vars);
-            sendToFusion('save_imported_theme', { id: data.id, vars: data.vars });
+            state.forms.theme = { ...state.forms.theme, name: data.id, fontFamily, fontSize };
+            applyTheme(data.id, vars);
+            applyFontOverrides(fontFamily, fontSize);
+            // Font Family is a closed 3-option list -- only reflect the imported value
+            // in the dropdown if it's an exact match; otherwise leave it on its current
+            // option while the literal string above still applies visually.
+            const fontFamilySelect = document.getElementById('theme.fontFamily');
+            if (Array.from(fontFamilySelect.options).some(opt => opt.value === fontFamily)) {
+                fontFamilySelect.value = fontFamily;
+            }
+            document.getElementById('theme.fontSize').value = fontSize;
+            updateThemeRemoveButtonState();
+            sendToFusion('save_imported_theme', { id: data.id, vars });
             sendToFusion('update_theme', { form: state.forms.theme });
             document.getElementById('theme-import-hint').textContent = `Imported "${data.id}"`;
         } catch (e) {
@@ -836,6 +1121,56 @@ document.getElementById('theme-import-input').addEventListener('change', (evt) =
     };
     reader.readAsText(file);
     evt.target.value = '';
+});
+
+// Exports a full snapshot of every currently effective themed color variable,
+// regardless of which built-in/imported theme produced it -- read via
+// getComputedStyle rather than reassembled from state, so it's always exactly what's
+// currently on screen. Font Family/Size are sent as separate top-level fields sourced
+// directly from state (not getComputedStyle) since they're independent of the color
+// theme -- see THEME_VAR_NAMES comment. The actual file write happens on the Python
+// side via a native Save dialog (see entry._handle_export_theme) -- a plain Blob/
+// anchor download has no reliable destination inside Fusion's embedded webview.
+document.getElementById('theme-export').addEventListener('click', async () => {
+    const defaultName = BUILTIN_THEME_NAMES.includes(state.forms.theme.name) ? '' : state.forms.theme.name;
+    const id = await showPromptModal('Export theme as:', defaultName, {
+        title: 'Export theme',
+        confirmLabel: 'Export',
+    });
+    if (!id) return;
+    const computed = getComputedStyle(document.documentElement);
+    const vars = {};
+    THEME_VAR_NAMES.forEach(name => {
+        vars[name] = computed.getPropertyValue(name).trim();
+    });
+    sendToFusion('export_theme', {
+        id,
+        vars,
+        fontFamily: state.forms.theme.fontFamily,
+        fontSize: state.forms.theme.fontSize,
+    });
+});
+
+document.getElementById('theme-remove').addEventListener('click', async () => {
+    const name = state.forms.theme.name;
+    if (BUILTIN_THEME_NAMES.includes(name) || !(name in importedThemes)) return;
+    const ok = await showConfirmModal(`Remove imported theme "${name}"? This cannot be undone.`, {
+        title: 'Remove theme',
+        confirmLabel: 'Remove',
+        danger: true,
+    });
+    if (!ok) return;
+    delete importedThemes[name];
+    const select = document.getElementById('theme.name');
+    const opt = Array.from(select.options).find(o => o.value === name);
+    if (opt) opt.remove();
+    select.value = 'System';
+    state.forms.theme = { ...state.forms.theme, name: 'System' };
+    applyTheme('System', null);
+    updateThemeRemoveButtonState();
+    sendToFusion('remove_imported_theme', { id: name });
+    sendToFusion('update_theme', { form: state.forms.theme });
+    document.getElementById('theme-import-hint').textContent = `Removed "${name}"`;
 });
 
 // ---- Bridge readiness ----
@@ -855,7 +1190,9 @@ renderForm('baseplate');
 renderForm('optimizer');
 renderForm('theme');
 applyTheme(state.forms.theme.name, null);
-renderConfigManager('bin');
-renderConfigManager('baseplate');
-renderConfigManager('optimizer');
+applyFontOverrides(state.forms.theme.fontFamily, state.forms.theme.fontSize);
+updateThemeRemoveButtonState();
+renderConfigStatus('bin');
+renderConfigStatus('baseplate');
+renderConfigStatus('optimizer');
 waitForFusionBridge();

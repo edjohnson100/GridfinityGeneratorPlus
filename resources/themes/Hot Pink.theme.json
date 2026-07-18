@@ -1,8 +1,6 @@
 {
   "id": "Hot Pink",
   "vars": {
-    "--font-family": "'Segoe UI', Tahoma, sans-serif",
-    "--font-size-base": "16px",
     "--bg-body": "#f5f5f5",
     "--text-main": "#333333",
     "--text-sub": "#666666",
@@ -14,7 +12,6 @@
     "--input-border": "#cccccc",
     "--input-text": "#333333",
     "--input-placeholder": "#aaaaaa",
-    "--toggle-bg": "#ccc",
     "--header-hover": "#e8e8e8",
     "--tab-bg": "#e0e0e0",
     "--tab-active-bg": "#ffffff",
@@ -22,8 +19,6 @@
     "--tab-active-text": "#0078d4",
     "--btn-primary": "#e401dd",
     "--btn-primary-hover": "#bc10ad",
-    "--btn-success": "#29a6a8",
-    "--btn-success-hover": "#218687",
     "--btn-secondary": "#e0e0e0",
     "--btn-secondary-hover": "#d0d0d0",
     "--btn-secondary-text": "#333333",
@@ -32,6 +27,11 @@
     "--status-error-bg": "#f7d4f0",
     "--status-error-text": "#721c24",
     "--status-info-bg": "#feffcc",
-    "--status-info-text": "#828500"
-  }
+    "--status-info-text": "#828500",
+    "--banner-warning-bg": "#fff8e1",
+    "--banner-warning-text": "#8a6d00",
+    "--banner-warning-border": "#e6c200"
+  },
+  "fontFamily": "-apple-system, \"Segoe UI\", Helvetica, Arial, sans-serif",
+  "fontSize": 14
 }

@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <div id="app">
@@ -124,15 +124,14 @@
         <span class="field-hint">Magnet cutout size is set in Common settings above</span>
       </details>
 
+      <div id="bin-notification" class="notification hidden"></div>
+
       <details class="section" open>
         <summary>Configurations</summary>
         <div class="config-active" id="bin-config-active"></div>
-        <label>Saved config
-          <select id="bin-config-select"></select>
-        </label>
         <div class="actions secondary">
-          <button type="button" data-config-action="load" data-tab="bin">Load</button>
-          <button type="button" data-config-action="delete" data-tab="bin">Delete</button>
+          <button type="button" data-config-action="load" data-tab="bin">Load&hellip;</button>
+          <button type="button" data-config-action="delete" data-tab="bin">Delete&hellip;</button>
         </div>
         <div class="actions secondary">
           <button type="button" data-config-action="save_as" data-tab="bin">Save As&hellip;</button>
@@ -229,15 +228,14 @@
         </div>
       </details>
 
+      <div id="baseplate-notification" class="notification hidden"></div>
+
       <details class="section" open>
         <summary>Configurations</summary>
         <div class="config-active" id="baseplate-config-active"></div>
-        <label>Saved config
-          <select id="baseplate-config-select"></select>
-        </label>
         <div class="actions secondary">
-          <button type="button" data-config-action="load" data-tab="baseplate">Load</button>
-          <button type="button" data-config-action="delete" data-tab="baseplate">Delete</button>
+          <button type="button" data-config-action="load" data-tab="baseplate">Load&hellip;</button>
+          <button type="button" data-config-action="delete" data-tab="baseplate">Delete&hellip;</button>
         </div>
         <div class="actions secondary">
           <button type="button" data-config-action="save_as" data-tab="baseplate">Save As&hellip;</button>
@@ -283,21 +281,25 @@
         <summary>Dimensions</summary>
         <span class="field-error" data-error-for="items"></span>
         <table id="optimizer-items-table">
-          <thead><tr><th>Description</th><th>Width (mm)</th><th>Depth (mm)</th><th></th></tr></thead>
+          <thead><tr>
+            <th class="sortable" data-sort-field="description">Description<span class="sort-indicator"></span></th>
+            <th class="sortable" data-sort-field="width">Width (mm)<span class="sort-indicator"></span></th>
+            <th class="sortable" data-sort-field="depth">Depth (mm)<span class="sort-indicator"></span></th>
+            <th></th>
+          </tr></thead>
           <tbody></tbody>
         </table>
         <button type="button" id="optimizer-items-add">Add dimension</button>
       </details>
 
+      <div id="optimizer-notification" class="notification hidden"></div>
+
       <details class="section" open>
         <summary>Saved sets</summary>
         <div class="config-active" id="optimizer-config-active"></div>
-        <label>Saved set
-          <select id="optimizer-config-select"></select>
-        </label>
         <div class="actions secondary">
-          <button type="button" data-config-action="load" data-tab="optimizer">Load</button>
-          <button type="button" data-config-action="delete" data-tab="optimizer">Delete</button>
+          <button type="button" data-config-action="load" data-tab="optimizer">Load&hellip;</button>
+          <button type="button" data-config-action="delete" data-tab="optimizer">Delete&hellip;</button>
         </div>
         <div class="actions secondary">
           <button type="button" data-config-action="save_as" data-tab="optimizer">Save As&hellip;</button>
@@ -345,14 +347,43 @@
           </select>
         </label>
         <span class="field-hint">"System" follows your OS's light/dark setting automatically.</span>
+
+        <label>Font family
+          <select id="theme.fontFamily">
+            <option value="-apple-system, &quot;Segoe UI&quot;, Helvetica, Arial, sans-serif">Sans-serif</option>
+            <option value="Georgia, &quot;Times New Roman&quot;, Times, serif">Serif</option>
+            <option value="Consolas, &quot;Courier New&quot;, Courier, monospace">Monospace</option>
+          </select>
+        </label>
+        <label>Base font size (px)
+          <input type="number" id="theme.fontSize" min="10" max="20" step="1">
+        </label>
+        <span class="field-hint">Font settings apply on top of whichever theme is selected above, and are included when you export a theme below.</span>
+
         <div class="actions secondary">
           <button type="button" id="theme-import">Import theme.json&hellip;</button>
           <input type="file" id="theme-import-input" accept="application/json,.json" class="hidden">
+        </div>
+        <div class="actions secondary">
+          <button type="button" id="theme-export">Export theme.json&hellip;</button>
+          <button type="button" id="theme-remove" disabled>Remove imported theme</button>
         </div>
         <span class="field-hint" id="theme-import-hint"></span>
       </details>
     </div>
   </div>
-  <script src="script.js?v=12"></script>
+
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <div class="modal-title" id="modal-title"></div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="modal-btn-cancel" id="modal-btn-cancel">Cancel</button>
+        <button type="button" class="modal-btn-confirm" id="modal-btn-confirm">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js?v=17"></script>
 </body>
 </html>
