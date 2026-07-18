@@ -334,14 +334,14 @@ input::placeholder {
 }
 
 .config-active {
-  font-size: 11px;
+  font-size: 0.92em;
   color: var(--text-sub);
   margin-bottom: 6px;
   font-style: italic;
 }
 
 .computed {
-  font-size: 11px;
+  font-size: 0.92em;
   color: var(--text-sub);
   margin-top: 4px;
 }
@@ -475,7 +475,7 @@ input::placeholder {
   background: var(--banner-warning-bg);
   color: var(--banner-warning-text);
   border: 1px solid var(--banner-warning-border);
-  font-size: 11px;
+  font-size: 0.92em;
 }
 
 .modal-overlay {
@@ -508,7 +508,7 @@ input::placeholder {
 .modal-body {
   margin-bottom: 12px;
   color: var(--text-main);
-  font-size: 12px;
+  font-size: 0.92em;
 }
 
 .modal-body p {
