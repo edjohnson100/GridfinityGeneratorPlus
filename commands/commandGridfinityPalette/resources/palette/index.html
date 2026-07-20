@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
   <div id="app">
@@ -23,10 +23,12 @@
       </div>
     </fieldset>
 
-    <div class="actions secondary">
+    <div class="actions secondary edit-active-row">
+      <span class="info-icon" tabindex="0" role="img" aria-label="Info">&#9432;
+        <span class="tooltip">Hover over a Gridfinity component in the browser and click the radio button that appears to its right to activate it, then click here to load it back into the palette for editing.</span>
+      </span>
       <button type="button" data-action="edit_active_component">Edit Active Component</button>
     </div>
-    <span class="field-hint">Hover over a Gridfinity component in the browser and click the radio button that appears to its right to activate it, then click here to load it back into the palette for editing.</span>
 
     <div class="tabs">
       <button class="tab-button active" data-tab="bin">Bin</button>
@@ -371,6 +373,8 @@
         <span class="field-hint" id="theme-import-hint"></span>
       </details>
     </div>
+
+    <div class="field-hint version-footer">GridfinityGeneratorPlus<br>v1.1.1.0, July 2026</div>
   </div>
 
   <div id="modal-overlay" class="modal-overlay hidden">
