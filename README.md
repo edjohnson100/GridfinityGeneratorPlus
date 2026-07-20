@@ -1,6 +1,6 @@
 # GridfinityGeneratorPlus
 
-Version: 1.1.1.0
+Version: 1.1.2.0
 
 By Ed Johnson (Making With An EdJ)
 
@@ -23,6 +23,10 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 5: Theme tab.** Customize the palette's appearance — built-in themes, automatic OS dark-mode following, and support for importing your own custom themes.
 
 ---
+## ✨ What's New in v1.1.2
+
+* **Fixed tripled bodies in stacked baseplates:** generating a Stackable baseplate with Stack Count > 1 silently produced 3x the expected baseplate/interface-layer bodies, all coincident in the Fusion viewport (so it looked correct there) but appearing as extra duplicate solids once exported/sliced. Root cause was a shared pattern-feature helper that only configured its first direction, leaving Fusion's own default second-direction quantity (3) active. If you've generated any Stackable baseplates with Stack Count > 1, regenerate them to pick up the fix.
+
 ## ✨ What's New in v1.1.1
 
 * **Fixed a notch in the bin base's bottom edge:** multi-cell bins previously showed a small visible notch at every interior grid seam along the outer bottom edge. The base is now built at its final, clearance-adjusted size from the very first sketch instead of being reshaped by a separate step afterward, so the outer edge comes out clean — you'll now see a small (expected, spec-accurate) gap between adjacent unit cells' feet instead.

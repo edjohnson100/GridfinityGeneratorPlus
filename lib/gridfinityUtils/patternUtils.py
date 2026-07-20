@@ -33,6 +33,10 @@ def linearPattern(
             adsk.core.ValueInput.createByReal(quantity),
             adsk.core.ValueInput.createByReal(spacing),
             adsk.fusion.PatternDistanceType.SpacingPatternDistanceType)
+    # createInput() only configures direction one; Fusion leaves direction two's
+    # quantity at its own default (3) even with no directionTwoEntity set, which
+    # silently multiplies every pattern built through this helper by 3.
+    patternInput.quantityTwo = adsk.core.ValueInput.createByReal(1)
     return rectangularPatternFeatures.add(patternInput)
 
 def circPattern(

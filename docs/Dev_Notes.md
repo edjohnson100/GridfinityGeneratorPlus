@@ -2,6 +2,13 @@
 
 Running log of notable feature work and design decisions in this fork, kept alongside `CLAUDE.md`. Newest entries at the top.
 
+## 2026-07-20 — v1.1.2 hotfix: stacked baseplates tripled on export
+
+- **Bug**: user generated a Stackable baseplate with Stack Count = 2, which looked correct in the Fusion viewport, but exporting/slicing it produced 3 copies of every body instead of the expected 2 baseplates + 1 interface layer. The extra bodies were exactly coincident with the real ones in the viewport (same position, same shape), so nothing looked wrong until the browser tree was expanded or the file was sliced — the user found the actual root cause themselves by inspecting the Fusion timeline directly rather than reasoning from the generator code, and located it precisely: both rectangular pattern features backing the stack (`Baseplate` and `Interface` copies) had Axis 1's quantity set correctly (matching Stack Count) but Axis 2's quantity left at Fusion's default of 3.
+- **Root cause**: `patternUtils.linearPattern()` (`lib/gridfinityUtils/patternUtils.py`) is a single-axis wrapper around `rectangularPatternFeatures.createInput()`, used by the Stackable baseplate's stack-copy step (`baseplateGenerator.py`, patterning both the baseplate body and the interface-layer spacer body when Stack Count > 1). `createInput()` only configures direction one; Fusion's `RectangularPatternInput` keeps its own default direction-two quantity (3) active even when `directionTwoEntity` is never set, so every pattern built through this helper was silently tripled in an unused second direction. This is distinct from every other rectangular-pattern call site in the codebase (`baseGenerator.createBaseBodyPattern`, `baseplateGenerator.py`'s main cell pattern, `binBodyLipGenerator.py`'s lip notches) — those are genuine 2D patterns and already set `directionTwoEntity`/`quantityTwo` explicitly, so they were never affected.
+- **Fix**: `linearPattern()` now explicitly sets `patternInput.quantityTwo = ValueInput.createByReal(1)` right after `createInput()`, with a comment flagging the gotcha for any future single-axis pattern helper. One-line fix, no other files changed. Any Stackable baseplate generated before this fix should be regenerated.
+- **Version**: bumped `GridfinityGeneratorPlus.manifest`/`README.md` to `1.1.2.0` (bug fix only — PATCH bump per [[versioning-independent-from-upstream]]).
+
 ## 2026-07-20 — Palette polish: version footer, Edit Active Component tooltip
 
 Small follow-up UI-only tweaks after v1.1.1.0 shipped, no functional/geometry changes, no version bump.
