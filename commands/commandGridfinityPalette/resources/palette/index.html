@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <div id="app">
@@ -69,7 +69,7 @@
         <label>Wall thickness (mm) <input type="number" step="0.1" id="bin.wallThickness"></label>
         <span class="field-error" data-error-for="wallThickness"></span>
         <label><input type="checkbox" id="bin.withLip"> With lip</label>
-        <label><input type="checkbox" id="bin.withLipNotches"> With lip notches</label>
+        <label id="bin-with-lip-notches-row"><input type="checkbox" id="bin.withLipNotches"> With lip notches</label>
       </details>
 
       <details class="section" id="bin-compartments-fieldset" open>
@@ -119,7 +119,7 @@
         <label><input type="checkbox" id="bin.hasScrewHoles"> Add screw holes</label>
         <label>Screw hole diameter (mm) <input type="number" step="0.05" id="bin.screwDiameter"></label>
         <label><input type="checkbox" id="bin.hasMagnetCutouts"> Add magnet cutouts</label>
-        <label><input type="checkbox" id="bin.hasMagnetCutoutsTabs"> Add magnet cutout tabs</label>
+        <label id="bin-has-magnet-cutouts-tabs-row"><input type="checkbox" id="bin.hasMagnetCutoutsTabs"> Add magnet cutout tabs</label>
         <span class="field-error" data-error-for="screwDiameter"></span>
         <span class="field-hint">Magnet cutout size is set in Common settings above</span>
       </details>
@@ -384,6 +384,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=17"></script>
+  <script src="script.js?v=18"></script>
 </body>
 </html>

@@ -226,6 +226,7 @@ This fork's development is logged in detail in [Dev\_Notes.md](http://Dev_Notes.
 - **Generate requires Hybrid design intent** — guarantees every generated part can carry its own settings for later editing or sharing.  
 - **Grouped Undo & Undo/Redo-aware preview tracking** — Update Preview/Generate each collapse to a single Undo step, and the Clear Preview button stays correctly in sync as you step through Fusion's Undo/Redo.  
 - **Redesigned Configurations manager & themed dialogs** — Load/Delete/Save As now open focused dialogs instead of sharing an inline dropdown, and every popup in the palette (including a warning before an Update Preview/Generate on one tab would discard an unfinalized preview on the other) uses a themed dialog matching the palette instead of a native browser popup.
+- **Bin base bottom-edge notch fix** — multi-cell bins no longer show a small notch at interior grid seams along the outer bottom edge; the base is now built at its final size from the first sketch instead of being reshaped by a separate step afterward.
 
 ---
 

@@ -113,8 +113,8 @@ def createSingleGridfinityBaseBody(
     input: BaseGeneratorInput,
     targetComponent: adsk.fusion.Component,
 ):
-    actual_base_width = input.baseWidth
-    actual_base_length = input.baseLength
+    actual_base_width = input.baseWidth - input.xyClearance * 2
+    actual_base_length = input.baseLength - input.xyClearance * 2
     features: adsk.fusion.Features = targetComponent.features
     extrudeFeatures: adsk.fusion.ExtrudeFeatures = features.extrudeFeatures
     baseConstructionPlaneInput: adsk.fusion.ConstructionPlaneInput = targetComponent.constructionPlanes.createInput()
@@ -145,7 +145,7 @@ def createSingleGridfinityBaseBody(
     filletInput = filletFeatures.createInput()
     filletInput.isRollingBallCorner = True
     fillet_edges = edgeUtils.selectEdgesByLength(baseBody.faces, const.BIN_BASE_TOP_SECTION_HEIGH, const.DEFAULT_FILTER_TOLERANCE)
-    filletInput.edgeSetInputs.addConstantRadiusEdgeSet(fillet_edges, adsk.core.ValueInput.createByReal(input.cornerFilletRadius), True)
+    filletInput.edgeSetInputs.addConstantRadiusEdgeSet(fillet_edges, adsk.core.ValueInput.createByReal(input.cornerFilletRadius - input.xyClearance), True)
     filletFeatures.add(filletInput).name = 'Base corner fillet'
 
     # chamfer top section

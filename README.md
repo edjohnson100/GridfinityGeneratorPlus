@@ -1,6 +1,6 @@
 # GridfinityGeneratorPlus
 
-Version: 1.1.0.0
+Version: 1.1.1.0
 
 By Ed Johnson (Making With An EdJ)
 
@@ -23,17 +23,10 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 5: Theme tab.** Customize the palette's appearance — built-in themes, automatic OS dark-mode following, and support for importing your own custom themes.
 
 ---
-## ✨ What's New in v1.1.0
+## ✨ What's New in v1.1.1
 
-* **Grouped Undo:** Update Preview and Generate each collapse to a single Undo step, instead of leaving several separate entries on Fusion's Undo stack.
-* **Undo/Redo-aware preview tracking:** the Clear Preview button now stays in sync as you step through Fusion's Undo/Redo — including recognizing an earlier preview reappearing several steps back, not just the most recent one.
-* **Cross-tab preview warning:** switching to the other tab and clicking Update Preview or Generate now warns you first if it would discard an unfinalized preview you built on the tab you're leaving.
-* **Redesigned Configurations manager:** Load, Delete, and Save As now each open a focused dialog instead of sharing an inline dropdown, with a clear "Active config" status line — Update Current is now the only button that acts on the current selection directly.
-* **Custom themed dialogs:** every native browser confirm/prompt popup in the palette has been replaced with a themed HTML modal that matches whichever theme you have selected.
-* **Theme tab: font controls, export, and cleanup.** Choose a font family and base font size on top of any theme, export the current look (including your font tweaks, which now correctly round-trip on re-import) as a shareable `.theme.json` via a native Save dialog defaulted to `resources/themes/`, and remove imported themes you no longer want.
-* **Linked Factory Reset:** resetting Bin or Baseplate now also resets the shared Common settings (base unit, clearance, magnet size), and vice versa — previously each Factory Reset button only reset its own section, so a loaded custom-grid preset could leave Common looking un-reset.
-* **Sortable Grid Optimizer dimensions table:** click a column heading (Description/Width/Depth) to sort your dimension list, click again to reverse — the order you leave it in is what gets saved.
-* **Visual polish:** a more distinct tab bar in dark themes, and hint/error text that now scales with the base font size setting.
+* **Fixed a notch in the bin base's bottom edge:** multi-cell bins previously showed a small visible notch at every interior grid seam along the outer bottom edge. The base is now built at its final, clearance-adjusted size from the very first sketch instead of being reshaped by a separate step afterward, so the outer edge comes out clean — you'll now see a small (expected, spec-accurate) gap between adjacent unit cells' feet instead.
+* **Dependent checkbox fixes:** unchecking **With lip** now also unchecks and disables **With lip notches** (re-enabling it when you check lip back on); unchecking **Add magnet cutouts** does the same for **Add magnet cutout tabs** — previously these could be left checked while their parent option was off.
 
 *For the full development history and the reasoning behind each design decision, see [`docs/Dev_Notes.md`](docs/Dev_Notes.md).*
 
@@ -87,6 +80,8 @@ For the fellow coders and makers out there, here is how GridfinityGeneratorPlus 
 * **Data Storage:** Each generated part's settings are stored as a Fusion component attribute directly tied to the component, so they travel with the `.f3d` file itself. Add-in preferences (window geometry, active theme), saved configurations, and imported themes are stored locally as JSON alongside the add-in.
 
 ## Acknowledgements & Credits
+
+* **[Gridfinity by Zack Freedman](https://www.youtube.com/c/ZackFreedman/about)** 
 
 * **Original Work:** GridfinityGeneratorPlus is a fork of **[GridfinityGenerator](https://github.com/Le0Michine/FusionGridfinityGenerator) by Lev Mishin**. The core parametric geometry — the base/foot profile, bin body construction, and baseplate generation — originates from his original work, without which this fork wouldn't exist.
 * **Developer:** Ed Johnson ([Making With An EdJ](https://www.youtube.com/@makingwithanedj))

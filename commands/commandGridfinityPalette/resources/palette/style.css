@@ -329,6 +329,7 @@ input::placeholder {
   font-weight: 600;
 }
 
+.disabled-row,
 .disabled-row label {
   opacity: 0.5;
 }

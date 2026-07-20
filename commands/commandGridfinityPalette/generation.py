@@ -9,7 +9,7 @@ from ...lib.gridfinityUtils import faceUtils
 from ...lib.gridfinityUtils import shellUtils
 from ...lib.gridfinityUtils import commonUtils
 from ...lib.gridfinityUtils import const
-from ...lib.gridfinityUtils.baseGenerator import createBaseBodyPattern, cutBaseClearance
+from ...lib.gridfinityUtils.baseGenerator import createBaseBodyPattern
 from ...lib.gridfinityUtils.baseGeneratorInput import BaseGeneratorInput
 from ...lib.gridfinityUtils.binBodyGenerator import createGridfinityBinBody, uniformCompartments
 from ...lib.gridfinityUtils.binBodyGeneratorInput import BinBodyGeneratorInput, BinBodyCompartmentDefinition
@@ -153,11 +153,7 @@ def build_bin(inputState: BinInputState, component: adsk.fusion.Component, name:
     xyClearance = inputState.xyClearance
 
     baseGeneratorInput = BaseGeneratorInput()
-    baseGeneratorInput.originPoint = geometryUtils.createOffsetPoint(
-        component.originConstructionPoint.geometry,
-        byX=-xyClearance,
-        byY=-xyClearance,
-    )
+    baseGeneratorInput.originPoint = component.originConstructionPoint.geometry
     baseGeneratorInput.baseWidth = inputState.baseWidthUnit
     baseGeneratorInput.baseLength = inputState.baseLengthUnit
     baseGeneratorInput.xyClearance = xyClearance
@@ -215,14 +211,6 @@ def build_bin(inputState: BinInputState, component: adsk.fusion.Component, name:
             binBodyInput,
             component,
         )
-    if inputState.generateBody or inputState.generateBase:
-        cutBaseClearance(
-            baseGeneratorInput,
-            inputState.binWidth,
-            inputState.binLength,
-            component,
-        )
-
     if inputState.generateBody and inputState.generateBase:
         toolBodies = commonUtils.objectCollectionFromList(baseBodies)
         combineFeatures = component.features.combineFeatures

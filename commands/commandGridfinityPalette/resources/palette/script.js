@@ -557,6 +557,18 @@ function uniformCompartments(gridWidth, gridLength, depthMm) {
 function updateBinConditionalVisibility() {
     const gridType = document.getElementById('bin.compartmentsGridType').value;
     document.getElementById('bin-compartments-table-wrapper').classList.toggle('hidden', gridType !== 'Custom');
+
+    const withLip = document.getElementById('bin.withLip').checked;
+    const withLipNotchesInput = document.getElementById('bin.withLipNotches');
+    withLipNotchesInput.disabled = !withLip;
+    if (!withLip) withLipNotchesInput.checked = false;
+    document.getElementById('bin-with-lip-notches-row').classList.toggle('disabled-row', !withLip);
+
+    const hasMagnetCutouts = document.getElementById('bin.hasMagnetCutouts').checked;
+    const hasMagnetCutoutsTabsInput = document.getElementById('bin.hasMagnetCutoutsTabs');
+    hasMagnetCutoutsTabsInput.disabled = !hasMagnetCutouts;
+    if (!hasMagnetCutouts) hasMagnetCutoutsTabsInput.checked = false;
+    document.getElementById('bin-has-magnet-cutouts-tabs-row').classList.toggle('disabled-row', !hasMagnetCutouts);
 }
 
 document.getElementById('bin-compartments-add').addEventListener('click', () => {
@@ -574,6 +586,16 @@ document.getElementById('bin-compartments-reset-uniform').addEventListener('clic
 });
 
 document.getElementById('bin.compartmentsGridType').addEventListener('change', () => {
+    updateBinConditionalVisibility();
+    requestValidation('bin');
+});
+
+document.getElementById('bin.withLip').addEventListener('change', () => {
+    updateBinConditionalVisibility();
+    requestValidation('bin');
+});
+
+document.getElementById('bin.hasMagnetCutouts').addEventListener('change', () => {
     updateBinConditionalVisibility();
     requestValidation('bin');
 });
