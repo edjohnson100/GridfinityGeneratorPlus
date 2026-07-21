@@ -80,3 +80,43 @@ class BinBodyLipGeneratorInput():
     @origin.setter
     def origin(self, value: adsk.core.Point3D):
         self._originUnit = value
+
+    @property
+    def hasHalfLeft(self) -> bool:
+        return self._hasHalfLeft
+
+    @hasHalfLeft.setter
+    def hasHalfLeft(self, value: bool):
+        self._hasHalfLeft = value
+
+    @property
+    def hasHalfRight(self) -> bool:
+        return self._hasHalfRight
+
+    @hasHalfRight.setter
+    def hasHalfRight(self, value: bool):
+        self._hasHalfRight = value
+
+    @property
+    def hasHalfFront(self) -> bool:
+        return self._hasHalfFront
+
+    @hasHalfFront.setter
+    def hasHalfFront(self, value: bool):
+        self._hasHalfFront = value
+
+    @property
+    def hasHalfBack(self) -> bool:
+        return self._hasHalfBack
+
+    @hasHalfBack.setter
+    def hasHalfBack(self, value: bool):
+        self._hasHalfBack = value
+
+    @property
+    def gridModel(self):
+        return self._gridModel
+
+    @gridModel.setter
+    def gridModel(self, value):
+        self._gridModel = value

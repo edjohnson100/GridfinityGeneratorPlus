@@ -4,7 +4,7 @@ import math
 import copy
 
 from ...lib import fusion360utils as futil
-from . import const, combineUtils, faceUtils, commonUtils, sketchUtils, extrudeUtils, baseGenerator, edgeUtils, filletUtils, geometryUtils
+from . import const, combineUtils, faceUtils, commonUtils, sketchUtils, extrudeUtils, baseGenerator, edgeUtils, filletUtils, geometryUtils, gridSlicing
 from .binBodyCutoutGenerator import createGridfinityBinBodyCutout
 from .binBodyCutoutGeneratorInput import BinBodyCutoutGeneratorInput
 from .baseGeneratorInput import BaseGeneratorInput
@@ -30,8 +30,13 @@ def createGridfinityBinBody(
     targetComponent: adsk.fusion.Component,
 ) -> tuple[adsk.fusion.BRepBody, adsk.fusion.BRepBody]:
 
-    actualBodyWidth = (input.baseWidth * input.binWidth) - input.xyClearance * 2.0
-    actualBodyLength = (input.baseLength * input.binLength) - input.xyClearance * 2.0
+    gridModel = gridSlicing.buildGridModel(
+        input.binWidth, input.binLength,
+        input.baseWidth, input.baseLength,
+        input.hasHalfLeft, input.hasHalfRight, input.hasHalfFront, input.hasHalfBack,
+    )
+    actualBodyWidth = gridModel.totalWidth - input.xyClearance * 2.0
+    actualBodyLength = gridModel.totalLength - input.xyClearance * 2.0
     binHeightWithoutBase = input.binHeight - 1
     binBodyTotalHeight = binHeightWithoutBase * input.heightUnit + max(0, input.heightUnit - const.BIN_BASE_HEIGHT)
     features: adsk.fusion.Features = targetComponent.features
@@ -70,6 +75,11 @@ def createGridfinityBinBody(
         lipInput.hasLipNotches = input.hasLipNotches
         lipInput.xyClearance = input.xyClearance
         lipInput.binCornerFilletRadius = input.binCornerFilletRadius
+        lipInput.hasHalfLeft = input.hasHalfLeft
+        lipInput.hasHalfRight = input.hasHalfRight
+        lipInput.hasHalfFront = input.hasHalfFront
+        lipInput.hasHalfBack = input.hasHalfBack
+        lipInput.gridModel = gridModel
         lipInput.origin = lipOriginPoint
         lipBody = createGridfinityBinBodyLip(lipInput, targetComponent)
 

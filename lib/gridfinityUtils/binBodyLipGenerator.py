@@ -22,10 +22,9 @@ def createGridfinityBinBodyLip(
     input: BinBodyLipGeneratorInput,
     targetComponent: adsk.fusion.Component,
 ):
-    actualLipBodyWidth = (input.baseWidth * input.binWidth) - input.xyClearance * 2.0
-    actualLipBodyLength = (input.baseLength * input.binLength) - input.xyClearance * 2.0
+    actualLipBodyWidth = input.gridModel.totalWidth - input.xyClearance * 2.0
+    actualLipBodyLength = input.gridModel.totalLength - input.xyClearance * 2.0
     lipBodyHeight = const.BIN_LIP_EXTRA_HEIGHT
-    features: adsk.fusion.Features = targetComponent.features
 
     lipBodyExtrude = extrudeUtils.createBoxAtPoint(
         actualLipBodyWidth,
@@ -67,22 +66,13 @@ def createGridfinityBinBodyLip(
         lipCutoutInput.xyClearance = input.xyClearance
         lipCutoutInput.hasBottomChamfer = False
         lipCutoutInput.cornerFilletRadius = input.binCornerFilletRadius + input.xyClearance * 2
-        lipCutout = baseGenerator.createSingleGridfinityBaseBody(lipCutoutInput, targetComponent)
-        lipCutout.name = "Lip cutout"
-        lipCutoutBodies.append(lipCutout)
-
-        patternInputBodies = adsk.core.ObjectCollection.create()
-        patternInputBodies.add(lipCutout)
-        patternInput = features.rectangularPatternFeatures.createInput(patternInputBodies,
-            targetComponent.xConstructionAxis,
-            adsk.core.ValueInput.createByReal(input.binWidth),
-            adsk.core.ValueInput.createByReal(input.baseWidth),
-            adsk.fusion.PatternDistanceType.SpacingPatternDistanceType)
-        patternInput.directionTwoEntity = targetComponent.yConstructionAxis
-        patternInput.quantityTwo = adsk.core.ValueInput.createByReal(input.binLength)
-        patternInput.distanceTwo = adsk.core.ValueInput.createByReal(input.baseLength)
-        rectangularPattern = features.rectangularPatternFeatures.add(patternInput)
-        lipCutoutBodies = lipCutoutBodies + list(rectangularPattern.bodies)
+        # one notch per module, including half-width/length edge modules and
+        # quarter-size corners - reuses the same 9-region grid the stacking
+        # feet/cutout cells use, since a lip notch is geometrically the same
+        # "oversized base-shaped cutout cell" concept, just used differently
+        lipCutoutBodies = baseGenerator.createBaseBodyGrid(lipCutoutInput, input.gridModel, targetComponent)
+        for body in lipCutoutBodies:
+            body.name = "Lip cutout"
 
         lipMiddleCutoutOrigin = geometryUtils.createOffsetPoint(
             input.origin,
@@ -113,8 +103,8 @@ def createGridfinityBinBodyLip(
             byY=-input.xyClearance * 2,
             byZ=const.BIN_BASE_HEIGHT
         )
-        lipCutoutInput.baseWidth = input.baseWidth * input.binWidth + input.xyClearance * 2
-        lipCutoutInput.baseLength = input.baseLength * input.binLength + input.xyClearance * 2
+        lipCutoutInput.baseWidth = input.gridModel.totalWidth + input.xyClearance * 2
+        lipCutoutInput.baseLength = input.gridModel.totalLength + input.xyClearance * 2
         lipCutoutInput.xyClearance = input.xyClearance
         lipCutoutInput.hasBottomChamfer = False
         lipCutoutInput.cornerFilletRadius = input.binCornerFilletRadius + input.xyClearance * 2

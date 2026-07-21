@@ -20,6 +20,11 @@ class BinInputState:
     binLength: int
     binHeight: float
 
+    hasHalfLeft: bool
+    hasHalfRight: bool
+    hasHalfFront: bool
+    hasHalfBack: bool
+
     generateBody: bool
     binType: str
     wallThickness: float
@@ -69,6 +74,10 @@ class BinInputState:
             binWidth=int(form['binWidth']),
             binLength=int(form['binLength']),
             binHeight=float(form['binHeight']),
+            hasHalfLeft=bool(form.get('hasHalfLeft', False)),
+            hasHalfRight=bool(form.get('hasHalfRight', False)),
+            hasHalfFront=bool(form.get('hasHalfFront', False)),
+            hasHalfBack=bool(form.get('hasHalfBack', False)),
             generateBody=bool(form['generateBody']),
             binType=form['binType'],
             wallThickness=float(form['wallThickness']),

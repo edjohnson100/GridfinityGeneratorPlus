@@ -323,6 +323,13 @@ input::placeholder {
   display: none;
 }
 
+.half-edge-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 12px;
+  margin: 4px 0;
+}
+
 .version-footer {
   text-align: center;
   margin-top: 14px;

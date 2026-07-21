@@ -2,7 +2,7 @@
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
-Version: 1.1.2.0
+Version: 1.2.0.0
 
 By Ed Johnson
 
@@ -68,6 +68,8 @@ If you’ve used the original GridfinityGenerator, here’s what’s different:E
 
 Generates a parametric Gridfinity bin: overall size (in grid units), wall type (Hollow/Shelled/Solid), stacking lip, uniform or custom compartment grid, scoop, label tab, base screw holes, and magnet cutouts. This is a direct continuation of the original’s bin generator — the underlying geometry logic is Lev Mishin’s.
 
+**Half-unit edges** *(new in this fork)*: check **Left**, **Right**, **Front**, and/or **Back** to add a half-unit-wide strip to that edge of the bin. Where two adjacent checked edges meet at a corner, that cell becomes quarter-size automatically — no extra configuration needed. Width/length can be **0** if the corresponding pair of half-edges (Left+Right, or Front+Back) supplies the whole dimension on that axis, letting you build a bin entirely out of half- and quarter-size cells. Magnet/screw cutouts and lip notches are placed per-module, but magnet/screw cutouts only ever apply to true full-size cells.
+
 ###  
 
 ### Baseplate
@@ -81,6 +83,10 @@ Generates a parametric Gridfinity baseplate. Four types are available:
 * **Full** — solid extended bottom, with magnet and screw cutouts.
 
 * **Stackable** *(new in this fork)* — see below.
+
+**Half-unit edges** *(new in this fork)*: same **Left/Right/Front/Back** checkboxes as the Bin tab, available for all four plate types. A Skeletonized baseplate's decorative bottom groove pattern only applies to true full-size cells — half and quarter cells from checked edges stay solid, same as a Full-type cell.
+
+**DXF-ready sketch for laser cutting** *(new in this fork)*: check **Generate DXF-ready sketch** to add a sketch of the plate's mid-height cross-section, on its own construction plane, which you can export to DXF or SVG by hand from Fusion (this add-in doesn't generate the file itself, so you can use whichever export tool you prefer). Useful for laser-cutting baseplates out of thin sheet material — verified working for the Light and Stackable types.
 
 #### *Stackable baseplates (new)*
 
@@ -228,6 +234,9 @@ This fork's development is logged in detail in [Dev\_Notes.md](http://Dev_Notes.
 - **Redesigned Configurations manager & themed dialogs** — Load/Delete/Save As now open focused dialogs instead of sharing an inline dropdown, and every popup in the palette (including a warning before an Update Preview/Generate on one tab would discard an unfinalized preview on the other) uses a themed dialog matching the palette instead of a native browser popup.
 - **Bin base bottom-edge notch fix** — multi-cell bins no longer show a small notch at interior grid seams along the outer bottom edge; the base is now built at its final size from the first sketch instead of being reshaped by a separate step afterward.
 - **Stacked baseplate tripling fix (v1.1.2)** — Stackable baseplates with Stack Count > 1 no longer silently produce 3x the expected bodies on export/slicing; a shared pattern-feature helper was leaving Fusion's default second-direction quantity active.
+- **DXF-ready sketch for laser-cut baseplates (v1.2.0)** — new opt-in sketch of a baseplate's mid-height cross-section, for manual DXF/SVG export and laser-cutting.
+- **Half-unit edge support for bins and baseplates (v1.2.0)** — Left/Right/Front/Back checkboxes add a half-unit-wide strip to any edge, with corners between two checked edges becoming quarter-size automatically; core width/length can be 0 when half-edges supply the rest of that axis.
+- **Bin foot alignment fix (v1.2.0)** — bin stacking feet now center correctly within each baseplate grid opening instead of sitting `xyClearance` off-center.
 
 ---
 

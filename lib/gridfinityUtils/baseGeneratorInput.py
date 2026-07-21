@@ -11,6 +11,7 @@ class BaseGeneratorInput():
         self.magnetCutoutsDiameter = DIMENSION_MAGNET_CUTOUT_DIAMETER
         self.magnetCutoutsDepth = DIMENSION_MAGNET_CUTOUT_DEPTH
         self.cornerFilletRadius = BIN_CORNER_FILLET_RADIUS
+        self.isReducedCell = False
 
     @property
     def originPoint(self) -> adsk.core.Point3D:
@@ -51,6 +52,14 @@ class BaseGeneratorInput():
     @xyClearance.setter
     def xyClearance(self, value: float):
         self._xyTolerance = value
+
+    @property
+    def isReducedCell(self) -> bool:
+        return self._isReducedCell
+
+    @isReducedCell.setter
+    def isReducedCell(self, value: bool):
+        self._isReducedCell = value
 
     @property
     def hasBottomChamfer(self) -> bool:

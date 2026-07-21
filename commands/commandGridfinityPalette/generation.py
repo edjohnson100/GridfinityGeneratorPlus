@@ -9,8 +9,9 @@ from ...lib.gridfinityUtils import faceUtils
 from ...lib.gridfinityUtils import shellUtils
 from ...lib.gridfinityUtils import commonUtils
 from ...lib.gridfinityUtils import const
-from ...lib.gridfinityUtils.baseGenerator import createBaseBodyPattern
+from ...lib.gridfinityUtils.baseGenerator import createBaseBodyGrid
 from ...lib.gridfinityUtils.baseGeneratorInput import BaseGeneratorInput
+from ...lib.gridfinityUtils import gridSlicing
 from ...lib.gridfinityUtils.binBodyGenerator import createGridfinityBinBody, uniformCompartments
 from ...lib.gridfinityUtils.binBodyGeneratorInput import BinBodyGeneratorInput, BinBodyCompartmentDefinition
 from ...lib.gridfinityUtils.binBodyTabGeneratorInput import BinBodyTabGeneratorInput
@@ -116,6 +117,10 @@ def build_baseplate(inputState: BaseplateInputState, component: adsk.fusion.Comp
     baseplateGeneratorInput.xyClearance = inputState.xyClearance
     baseplateGeneratorInput.baseplateWidth = inputState.plateWidth
     baseplateGeneratorInput.baseplateLength = inputState.plateLength
+    baseplateGeneratorInput.hasHalfLeft = inputState.hasHalfLeft
+    baseplateGeneratorInput.hasHalfRight = inputState.hasHalfRight
+    baseplateGeneratorInput.hasHalfFront = inputState.hasHalfFront
+    baseplateGeneratorInput.hasHalfBack = inputState.hasHalfBack
     baseplateGeneratorInput.hasExtendedBottom = inputState.plateType not in (BASEPLATE_TYPE_LIGHT, BASEPLATE_TYPE_STACKABLE)
     baseplateGeneratorInput.hasSkeletonizedBottom = inputState.plateType == BASEPLATE_TYPE_SKELETONIZED
     baseplateGeneratorInput.hasMagnetCutouts = inputState.hasMagnetCutouts
@@ -137,6 +142,7 @@ def build_baseplate(inputState: BaseplateInputState, component: adsk.fusion.Comp
     baseplateGeneratorInput.isStackable = inputState.plateType == BASEPLATE_TYPE_STACKABLE
     baseplateGeneratorInput.stackCount = inputState.stackCount
     baseplateGeneratorInput.interfaceLayerThickness = inputState.interfaceLayerThickness
+    baseplateGeneratorInput.generateDxfSketch = inputState.generateDxfSketch
 
     baseplateBody = createGridfinityBaseplate(baseplateGeneratorInput, component)
     if not baseplateGeneratorInput.isStackable:
@@ -153,7 +159,16 @@ def build_bin(inputState: BinInputState, component: adsk.fusion.Component, name:
     xyClearance = inputState.xyClearance
 
     baseGeneratorInput = BaseGeneratorInput()
-    baseGeneratorInput.originPoint = component.originConstructionPoint.geometry
+    # shifted by -xyClearance in X/Y (not the whole-body origin, just the base/foot
+    # sketches) so each foot cell centers correctly within its baseplate grid opening
+    # instead of sitting flush at the true origin - baseplate's own cutout cells are
+    # drawn shifted by -2*xyClearance at unshrunk width, so without this the feet
+    # end up offset by xyClearance from each opening's actual center
+    baseGeneratorInput.originPoint = geometryUtils.createOffsetPoint(
+        component.originConstructionPoint.geometry,
+        byX=-xyClearance,
+        byY=-xyClearance,
+    )
     baseGeneratorInput.baseWidth = inputState.baseWidthUnit
     baseGeneratorInput.baseLength = inputState.baseLengthUnit
     baseGeneratorInput.xyClearance = xyClearance
@@ -164,12 +179,17 @@ def build_bin(inputState: BinInputState, component: adsk.fusion.Component, name:
     baseGeneratorInput.magnetCutoutsDiameter = inputState.magnetDiameter
     baseGeneratorInput.magnetCutoutsDepth = inputState.magnetDepth
 
+    gridModel = gridSlicing.buildGridModel(
+        inputState.binWidth, inputState.binLength,
+        inputState.baseWidthUnit, inputState.baseLengthUnit,
+        inputState.hasHalfLeft, inputState.hasHalfRight, inputState.hasHalfFront, inputState.hasHalfBack,
+    )
+
     baseBodies: list[adsk.fusion.BRepBody] = []
     if inputState.generateBase:
-        baseBodies = createBaseBodyPattern(
+        baseBodies = createBaseBodyGrid(
             baseGeneratorInput,
-            inputState.binWidth,
-            inputState.binLength,
+            gridModel,
             component,
         )
 
@@ -182,6 +202,10 @@ def build_bin(inputState: BinInputState, component: adsk.fusion.Component, name:
     binBodyInput.baseWidth = inputState.baseWidthUnit
     binBodyInput.baseLength = inputState.baseLengthUnit
     binBodyInput.heightUnit = inputState.heightUnit
+    binBodyInput.hasHalfLeft = inputState.hasHalfLeft
+    binBodyInput.hasHalfRight = inputState.hasHalfRight
+    binBodyInput.hasHalfFront = inputState.hasHalfFront
+    binBodyInput.hasHalfBack = inputState.hasHalfBack
     binBodyInput.xyClearance = xyClearance
     binBodyInput.binCornerFilletRadius = const.BIN_CORNER_FILLET_RADIUS - xyClearance
     binBodyInput.isSolid = isSolid or isShelled

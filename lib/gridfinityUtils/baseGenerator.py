@@ -1,9 +1,10 @@
 import adsk.core, adsk.fusion, traceback, math
+import copy
 import os
 
 from .sketchUtils import createRectangle
 from ...lib.gridfinityUtils.baseGeneratorInput import BaseGeneratorInput
-from . import sketchUtils, const, edgeUtils, commonUtils, combineUtils, faceUtils, extrudeUtils, shapeUtils, geometryUtils
+from . import sketchUtils, const, edgeUtils, commonUtils, combineUtils, faceUtils, extrudeUtils, shapeUtils, geometryUtils, gridSlicing
 from ...lib import fusion360utils as futil
 from ... import config
 
@@ -184,13 +185,15 @@ def createSingleGridfinityBaseBody(
     cutoutBodies = adsk.core.ObjectCollection.create()
 
     baseBottomPlane = baseBottomExtrude.endFaces.item(0)
+    # relative to input.originPoint, not the global origin - a cell built off-origin
+    # (e.g. a half-unit-edge grid's center region) still needs correctly placed holes
     baseHoleCenterPoint = adsk.core.Point3D.create(
-        const.DIMENSION_SCREW_HOLES_OFFSET - input.xyClearance,
-        const.DIMENSION_SCREW_HOLES_OFFSET - input.xyClearance,
+        input.originPoint.x + const.DIMENSION_SCREW_HOLES_OFFSET - input.xyClearance,
+        input.originPoint.y + const.DIMENSION_SCREW_HOLES_OFFSET - input.xyClearance,
         baseBottomPlane.boundingBox.minPoint.z
     )
     cutoutCenterPoint = adsk.core.Point3D.create(baseHoleCenterPoint.x, baseHoleCenterPoint.y, 0)
-    if input.hasScrewHoles:
+    if not input.isReducedCell and input.hasScrewHoles:
         screwHoleBody = shapeUtils.simpleCylinder(
             baseBottomPlane,
             0,
@@ -202,7 +205,7 @@ def createSingleGridfinityBaseBody(
         cutoutBodies.add(screwHoleBody)
 
     # magnet cutouts
-    if input.hasMagnetCutouts:
+    if not input.isReducedCell and input.hasMagnetCutouts:
         magnetSocketBody = shapeUtils.simpleCylinder(
             baseBottomPlane,
             0,
@@ -276,18 +279,19 @@ def createSingleGridfinityBaseBody(
             cutoutBodies.add(grooveBody)
 
 
-    if input.hasScrewHoles or input.hasMagnetCutouts:
+    if not input.isReducedCell and (input.hasScrewHoles or input.hasMagnetCutouts):
         if cutoutBodies.count > 1:
             joinFeature = combineUtils.joinBodies(cutoutBodies.item(0), commonUtils.objectCollectionFromList(list(cutoutBodies)[1:]), targetComponent)
             cutoutBodies = commonUtils.objectCollectionFromList(joinFeature.bodies)
 
+        # offsets relative to input.originPoint, not the global origin - see baseHoleCenterPoint above
         baseXZMidPlaneInput = targetComponent.constructionPlanes.createInput()
-        baseXZMidPlaneInput.setByOffset(targetComponent.xZConstructionPlane, adsk.core.ValueInput.createByReal(input.baseLength / 2 - input.xyClearance))
+        baseXZMidPlaneInput.setByOffset(targetComponent.xZConstructionPlane, adsk.core.ValueInput.createByReal(input.originPoint.y + input.baseLength / 2 - input.xyClearance))
         baseXZMidPlane = targetComponent.constructionPlanes.add(baseXZMidPlaneInput)
         baseXZMidPlane.name = "Base XZ mid plane"
         baseXZMidPlane.isLightBulbOn = False
         baseYZMidPlaneInput = targetComponent.constructionPlanes.createInput()
-        baseYZMidPlaneInput.setByOffset(targetComponent.yZConstructionPlane, adsk.core.ValueInput.createByReal(input.baseWidth / 2 - input.xyClearance))
+        baseYZMidPlaneInput.setByOffset(targetComponent.yZConstructionPlane, adsk.core.ValueInput.createByReal(input.originPoint.x + input.baseWidth / 2 - input.xyClearance))
         baseYZMidPlane = targetComponent.constructionPlanes.add(baseYZMidPlaneInput)
         baseYZMidPlane.name = "Base YZ mid plane"
         baseYZMidPlane.isLightBulbOn = False
@@ -396,6 +400,77 @@ def createBaseBodyPattern(
     patternInput.distanceTwo = adsk.core.ValueInput.createByReal(baseConfiguration.baseLength)
     rectangularPattern = rectangularPatternFeatures.add(patternInput)
     return list(rectangularPattern.bodies) + [baseBody]
+
+def createBaseBodyGrid(
+    baseConfiguration: BaseGeneratorInput,
+    gridModel: gridSlicing.GridModel,
+    targetComponent: adsk.fusion.Component,
+    regions=None,
+):
+    """
+    Builds the stacking-foot/cutout-cell grid for half-unit edge support: one
+    native rectangular pattern per uniform region (center/edge-strips/corners)
+    from gridSlicing.enumerateGridRegions, instead of assuming every cell is
+    the same size like createBaseBodyPattern does. Degenerates to a single
+    center-region pattern (functionally identical to createBaseBodyPattern)
+    when no half-edges are configured.
+
+    baseConfiguration.baseWidth/baseLength represent the *drawn* size of a
+    full-size cell, which may be oversized relative to gridModel's true unit
+    pitch (e.g. baseplateGenerator.py's cutout cells are pitch + 2*xyClearance,
+    to cut cleanly around each real base). gridModel.baseWidth/baseLength is
+    always the true, un-oversized pitch used for region positions and pattern
+    spacing. The fixed oversize delta (if any) is preserved for half/quarter
+    cells too, since xyClearance is a flat margin, not proportional to size.
+
+    `regions` lets a caller pass a pre-filtered region list (e.g. excluding
+    'center') when it needs to build that region's seed body itself instead -
+    baseplateGenerator.py's center cell already carries skeletonized-bottom/
+    magnet-groove/connection-hole extras baked in before this is called, so
+    it patterns that existing body separately and only asks this function for
+    the plain edge/corner cells. Defaults to every region in gridModel.
+    """
+    features = targetComponent.features
+    rectangularPatternFeatures: adsk.fusion.RectangularPatternFeatures = features.rectangularPatternFeatures
+    allBodies = []
+
+    widthOversizeDelta = baseConfiguration.baseWidth - gridModel.baseWidth
+    lengthOversizeDelta = baseConfiguration.baseLength - gridModel.baseLength
+
+    if regions is None:
+        regions = gridSlicing.enumerateGridRegions(gridModel)
+
+    for region in regions:
+        regionConfig = copy.copy(baseConfiguration)
+        regionConfig.baseWidth = region.cellWidth + widthOversizeDelta
+        regionConfig.baseLength = region.cellLength + lengthOversizeDelta
+        regionConfig.isReducedCell = not region.isFullSizeCell
+        regionConfig.originPoint = geometryUtils.createOffsetPoint(
+            baseConfiguration.originPoint,
+            byX=region.originX,
+            byY=region.originY,
+        )
+
+        seedBody = createSingleGridfinityBaseBody(regionConfig, targetComponent)
+
+        if region.countX > 1 or region.countY > 1:
+            patternInputBodies = adsk.core.ObjectCollection.create()
+            patternInputBodies.add(seedBody)
+            patternInput = rectangularPatternFeatures.createInput(patternInputBodies,
+                targetComponent.xConstructionAxis,
+                adsk.core.ValueInput.createByReal(region.countX),
+                adsk.core.ValueInput.createByReal(gridModel.baseWidth),
+                adsk.fusion.PatternDistanceType.SpacingPatternDistanceType)
+            patternInput.directionTwoEntity = targetComponent.yConstructionAxis
+            patternInput.quantityTwo = adsk.core.ValueInput.createByReal(region.countY)
+            patternInput.distanceTwo = adsk.core.ValueInput.createByReal(gridModel.baseLength)
+            rectangularPattern = rectangularPatternFeatures.add(patternInput)
+            allBodies.extend(list(rectangularPattern.bodies))
+
+        allBodies.append(seedBody)
+
+    return allBodies
+
 
 def cutBaseClearance(
     baseConfiguration: BaseGeneratorInput,

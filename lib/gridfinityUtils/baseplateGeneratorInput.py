@@ -19,6 +19,11 @@ class BaseplateGeneratorInput():
         self.isStackable = False
         self.stackCount = 1
         self.interfaceLayerThickness = const.BASEPLATE_STACK_INTERFACE_THICKNESS
+        self.generateDxfSketch = False
+        self.hasHalfLeft = False
+        self.hasHalfRight = False
+        self.hasHalfFront = False
+        self.hasHalfBack = False
 
     @property
     def baseWidth(self) -> float:
@@ -99,6 +104,46 @@ class BaseplateGeneratorInput():
     @interfaceLayerThickness.setter
     def interfaceLayerThickness(self, value: float):
         self._interfaceLayerThickness = value
+
+    @property
+    def generateDxfSketch(self) -> bool:
+        return self._generateDxfSketch
+
+    @generateDxfSketch.setter
+    def generateDxfSketch(self, value: bool):
+        self._generateDxfSketch = value
+
+    @property
+    def hasHalfLeft(self) -> bool:
+        return self._hasHalfLeft
+
+    @hasHalfLeft.setter
+    def hasHalfLeft(self, value: bool):
+        self._hasHalfLeft = value
+
+    @property
+    def hasHalfRight(self) -> bool:
+        return self._hasHalfRight
+
+    @hasHalfRight.setter
+    def hasHalfRight(self, value: bool):
+        self._hasHalfRight = value
+
+    @property
+    def hasHalfFront(self) -> bool:
+        return self._hasHalfFront
+
+    @hasHalfFront.setter
+    def hasHalfFront(self, value: bool):
+        self._hasHalfFront = value
+
+    @property
+    def hasHalfBack(self) -> bool:
+        return self._hasHalfBack
+
+    @hasHalfBack.setter
+    def hasHalfBack(self, value: bool):
+        self._hasHalfBack = value
 
     @property
     def hasExtendedBottom(self) -> bool:

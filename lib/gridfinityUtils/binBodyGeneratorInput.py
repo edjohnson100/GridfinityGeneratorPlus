@@ -67,6 +67,10 @@ class BinBodyGeneratorInput():
         self.compartmentsByX = 1
         self.compartmentsByY = 1
         self.binCornerFilletRadius = const.BIN_CORNER_FILLET_RADIUS
+        self.hasHalfLeft = False
+        self.hasHalfRight = False
+        self.hasHalfFront = False
+        self.hasHalfBack = False
 
     @property
     def baseWidth(self) -> float:
@@ -123,6 +127,38 @@ class BinBodyGeneratorInput():
     @binHeight.setter
     def binHeight(self, value: float):
         self._binHeight = value
+
+    @property
+    def hasHalfLeft(self) -> bool:
+        return self._hasHalfLeft
+
+    @hasHalfLeft.setter
+    def hasHalfLeft(self, value: bool):
+        self._hasHalfLeft = value
+
+    @property
+    def hasHalfRight(self) -> bool:
+        return self._hasHalfRight
+
+    @hasHalfRight.setter
+    def hasHalfRight(self, value: bool):
+        self._hasHalfRight = value
+
+    @property
+    def hasHalfFront(self) -> bool:
+        return self._hasHalfFront
+
+    @hasHalfFront.setter
+    def hasHalfFront(self, value: bool):
+        self._hasHalfFront = value
+
+    @property
+    def hasHalfBack(self) -> bool:
+        return self._hasHalfBack
+
+    @hasHalfBack.setter
+    def hasHalfBack(self, value: bool):
+        self._hasHalfBack = value
 
     @property
     def binCornerFilletRadius(self) -> float:

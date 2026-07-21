@@ -43,7 +43,7 @@ CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'c
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
 
 PALETTE_TITLE = 'GridfinityGeneratorPlus'
-PALETTE_VERSION = 21
+PALETTE_VERSION = 24
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Local list of event handlers for the command button.
@@ -56,6 +56,10 @@ DEFAULT_BIN = {
     'binWidth': 2,
     'binLength': 3,
     'binHeight': 5,
+    'hasHalfLeft': False,
+    'hasHalfRight': False,
+    'hasHalfFront': False,
+    'hasHalfBack': False,
     'generateBody': True,
     'binType': 'Hollow',
     'wallThickness': const.BIN_WALL_THICKNESS,
@@ -82,6 +86,10 @@ DEFAULT_BIN = {
 DEFAULT_BASEPLATE = {
     'plateWidth': 2,
     'plateLength': 3,
+    'hasHalfLeft': False,
+    'hasHalfRight': False,
+    'hasHalfFront': False,
+    'hasHalfBack': False,
     'plateType': 'Light',
     'hasMagnetCutouts': True,
     'hasScrewHoles': True,
@@ -98,6 +106,7 @@ DEFAULT_BASEPLATE = {
     'connectionHoleDiameter': const.DIMENSION_PLATE_CONNECTION_SCREW_HOLE_DIAMETER,
     'stackCount': 1,
     'interfaceLayerThickness': const.BASEPLATE_STACK_INTERFACE_THICKNESS,
+    'generateDxfSketch': False,
 }
 
 # The Grid Optimizer tab is a pure-Python advisory calculator (no Fusion

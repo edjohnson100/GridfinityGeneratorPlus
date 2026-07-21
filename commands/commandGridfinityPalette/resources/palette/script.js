@@ -217,8 +217,8 @@ function onValidationResult(payload) {
     state.valid[tab] = payload.valid;
     state.fieldErrors[tab] = payload.fieldErrors || {};
     renderFieldErrors(tab);
-    if (tab === 'bin') {
-        renderComputed(payload.computed || {});
+    if (tab === 'bin' || tab === 'baseplate') {
+        renderComputed(tab, payload.computed || {});
     }
     updateActionButtons(tab);
 }
@@ -466,21 +466,27 @@ function renderFieldErrors(tab) {
     });
 }
 
-function renderComputed(computed) {
-    const dims = document.getElementById('bin-computed-dimensions');
-    if ('totalWidthMm' in computed) {
-        dims.textContent = `Actual size: ${computed.totalWidthMm} x ${computed.totalLengthMm} x ${computed.totalHeightMm} mm`;
-    } else {
-        dims.textContent = '';
+function renderComputed(tab, computed) {
+    const dims = document.getElementById(`${tab}-computed-dimensions`);
+    if (dims) {
+        if ('totalWidthMm' in computed) {
+            dims.textContent = 'totalHeightMm' in computed
+                ? `Actual size: ${computed.totalWidthMm} x ${computed.totalLengthMm} x ${computed.totalHeightMm} mm`
+                : `Actual size: ${computed.totalWidthMm} x ${computed.totalLengthMm} mm`;
+        } else {
+            dims.textContent = '';
+        }
     }
 
     const compartments = document.getElementById('bin-computed-compartments');
-    if ('compartmentCellWidthMm' in computed) {
-        const widthClass = computed.compartmentCellWidthTooSmall ? 'too-small' : '';
-        const lengthClass = computed.compartmentCellLengthTooSmall ? 'too-small' : '';
-        compartments.innerHTML = `Cell size: <span class="${widthClass}">${computed.compartmentCellWidthMm} mm</span> x <span class="${lengthClass}">${computed.compartmentCellLengthMm} mm</span>`;
-    } else {
-        compartments.textContent = '';
+    if (compartments) {
+        if ('compartmentCellWidthMm' in computed) {
+            const widthClass = computed.compartmentCellWidthTooSmall ? 'too-small' : '';
+            const lengthClass = computed.compartmentCellLengthTooSmall ? 'too-small' : '';
+            compartments.innerHTML = `Cell size: <span class="${widthClass}">${computed.compartmentCellWidthMm} mm</span> x <span class="${lengthClass}">${computed.compartmentCellLengthMm} mm</span>`;
+        } else {
+            compartments.textContent = '';
+        }
     }
 }
 

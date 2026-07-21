@@ -1,6 +1,6 @@
 # GridfinityGeneratorPlus
 
-Version: 1.1.2.0
+Version: 1.2.0.0
 
 By Ed Johnson (Making With An EdJ)
 
@@ -21,8 +21,15 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 3: Grid Optimizer.** Building a custom (non-42mm) grid to fit a specific drawer or cabinet? Enter your real measurements and let the optimizer recommend a pitch that minimizes wasted space, instead of guessing.
 * **Feature 4: Stackable baseplates.** A fourth baseplate type, made symmetric top-to-bottom so it can be printed and physically stacked with no overhang, with configurable interface layers between plates.
 * **Feature 5: Theme tab.** Customize the palette's appearance — built-in themes, automatic OS dark-mode following, and support for importing your own custom themes.
+* **Feature 6: Half-unit grid support & DXF export for laser cutting.** Add a half-unit-wide strip to any edge (Left/Right/Front/Back) of a bin or baseplate — where two checked edges meet at a corner, that cell automatically becomes quarter-size, no extra configuration needed. Baseplates can also generate a DXF-ready sketch for laser-cut fabrication.
 
 ---
+## ✨ What's New in v1.2.0
+
+* **Half-unit edge support for bins and baseplates.** New Left/Right/Front/Back checkboxes on both tabs add a half-unit-wide strip to that edge; where two adjacent checked edges meet at a corner, that cell becomes quarter-size automatically. Core width/length can now be 0 when half-edges supply the rest of that axis — build a bin or baseplate entirely out of half- and quarter-size cells if you want to. Magnet/screw cutouts only ever apply to true full-size cells; a Skeletonized baseplate's decorative bottom groove is likewise full-cells-only, with half/quarter cells staying solid.
+* **DXF-ready sketch for laser-cut baseplates.** New "Generate DXF-ready sketch" option on the Baseplate tab adds a sketch of the plate's mid-height cross-section that you can export to DXF/SVG by hand from Fusion, for laser-cutting baseplates out of thin sheet material.
+* **Bin foot alignment fix.** Bin stacking feet now center correctly within each baseplate grid opening — previously they sat `xyClearance` off-center, most noticeable on precise/tight-clearance prints.
+
 ## ✨ What's New in v1.1.2
 
 * **Fixed tripled bodies in stacked baseplates:** generating a Stackable baseplate with Stack Count > 1 silently produced 3x the expected baseplate/interface-layer bodies, all coincident in the Fusion viewport (so it looked correct there) but appearing as extra duplicate solids once exported/sliced. Root cause was a shared pattern-feature helper that only configured its first direction, leaving Fusion's own default second-direction quantity (3) active. If you've generated any Stackable baseplates with Stack Count > 1, regenerate them to pick up the fix.

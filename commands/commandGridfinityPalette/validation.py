@@ -1,6 +1,6 @@
 import math
 
-from ...lib.gridfinityUtils import const
+from ...lib.gridfinityUtils import const, gridSlicing
 
 
 def validate_bin(form: dict) -> dict:
@@ -16,6 +16,10 @@ def validate_bin(form: dict) -> dict:
     binWidth = float(get('binWidth', 0))
     binLength = float(get('binLength', 0))
     binHeight = float(get('binHeight', 0))
+    hasHalfLeft = bool(get('hasHalfLeft'))
+    hasHalfRight = bool(get('hasHalfRight'))
+    hasHalfFront = bool(get('hasHalfFront'))
+    hasHalfBack = bool(get('hasHalfBack'))
     wallThickness = float(get('wallThickness', 0))
     generateBase = bool(get('generateBase'))
     generateBody = bool(get('generateBody'))
@@ -45,10 +49,10 @@ def validate_bin(form: dict) -> dict:
         fieldErrors['heightUnit'] = 'Must be greater than 5mm'
     if not (0.01 <= xyClearance <= 0.05):
         fieldErrors['xyClearance'] = 'Must be within [0.1, 0.5]mm'
-    if not binWidth > 0:
-        fieldErrors['binWidth'] = 'Must be greater than 0'
-    if not binLength > 0:
-        fieldErrors['binLength'] = 'Must be greater than 0'
+    if binWidth < 0 or (binWidth == 0 and not (hasHalfLeft or hasHalfRight)):
+        fieldErrors['binWidth'] = 'Must be greater than 0, or check Left/Right half-edge'
+    if binLength < 0 or (binLength == 0 and not (hasHalfFront or hasHalfBack)):
+        fieldErrors['binLength'] = 'Must be greater than 0, or check Front/Back half-edge'
     if not binHeight >= 1:
         fieldErrors['binHeight'] = 'Must be at least 1'
     if not (0.04 <= wallThickness <= 0.2):
@@ -87,16 +91,20 @@ def validate_bin(form: dict) -> dict:
 
     computed = {}
     try:
-        actualWidth = baseWidthUnit * binWidth - const.BIN_XY_CLEARANCE * 2
-        actualLength = baseLengthUnit * binLength - const.BIN_XY_CLEARANCE * 2
+        gridModel = gridSlicing.buildGridModel(
+            int(binWidth), int(binLength), baseWidthUnit, baseLengthUnit,
+            hasHalfLeft, hasHalfRight, hasHalfFront, hasHalfBack,
+        )
+        actualWidth = gridModel.totalWidth - const.BIN_XY_CLEARANCE * 2
+        actualLength = gridModel.totalLength - const.BIN_XY_CLEARANCE * 2
         actualHeight = heightUnit * binHeight + ((const.BIN_LIP_EXTRA_HEIGHT - const.BIN_LIP_TOP_RECESS_HEIGHT) if bool(get('withLip')) else 0)
         computed['totalWidthMm'] = round(actualWidth * 10, 2)
         computed['totalLengthMm'] = round(actualLength * 10, 2)
         computed['totalHeightMm'] = round(actualHeight * 10, 2)
 
         minCompartmentDimensionLimit = (const.BIN_CORNER_FILLET_RADIUS - wallThickness) * 2 * 10
-        cellWidth = round((baseWidthUnit * binWidth - wallThickness * 2 - xyClearance * 2 - wallThickness * (compartmentsGridWidth - 1)) / compartmentsGridWidth * 10, 2)
-        cellLength = round((baseLengthUnit * binLength - wallThickness * 2 - xyClearance * 2 - wallThickness * (compartmentsGridLength - 1)) / compartmentsGridLength * 10, 2)
+        cellWidth = round((actualWidth - wallThickness * 2 - wallThickness * (compartmentsGridWidth - 1)) / compartmentsGridWidth * 10, 2)
+        cellLength = round((actualLength - wallThickness * 2 - wallThickness * (compartmentsGridLength - 1)) / compartmentsGridLength * 10, 2)
         computed['compartmentCellWidthMm'] = cellWidth
         computed['compartmentCellLengthMm'] = cellLength
         computed['compartmentCellWidthTooSmall'] = cellWidth < minCompartmentDimensionLimit
@@ -122,6 +130,10 @@ def validate_baseplate(form: dict) -> dict:
     xyClearance = float(get('xyClearance', 0))
     plateWidth = float(get('plateWidth', 0))
     plateLength = float(get('plateLength', 0))
+    hasHalfLeft = bool(get('hasHalfLeft'))
+    hasHalfRight = bool(get('hasHalfRight'))
+    hasHalfFront = bool(get('hasHalfFront'))
+    hasHalfBack = bool(get('hasHalfBack'))
     hasMagnetCutouts = bool(get('hasMagnetCutouts'))
     magnetDiameter = float(get('magnetDiameter', 0))
     magnetDepth = float(get('magnetDepth', 0))
@@ -141,10 +153,10 @@ def validate_baseplate(form: dict) -> dict:
         fieldErrors['baseLengthUnit'] = 'Must be at least 10mm'
     if not (0.01 <= xyClearance <= 0.05):
         fieldErrors['xyClearance'] = 'Must be within [0.1, 0.5]mm'
-    if not plateWidth > 0:
-        fieldErrors['plateWidth'] = 'Must be greater than 0'
-    if not plateLength > 0:
-        fieldErrors['plateLength'] = 'Must be greater than 0'
+    if plateWidth < 0 or (plateWidth == 0 and not (hasHalfLeft or hasHalfRight)):
+        fieldErrors['plateWidth'] = 'Must be greater than 0, or check Left/Right half-edge'
+    if plateLength < 0 or (plateLength == 0 and not (hasHalfFront or hasHalfBack)):
+        fieldErrors['plateLength'] = 'Must be greater than 0, or check Front/Back half-edge'
 
     if hasMagnetCutouts:
         if not (0 < magnetDiameter <= 1):
@@ -170,10 +182,21 @@ def validate_baseplate(form: dict) -> dict:
         if stackCount > 1 and not interfaceLayerThickness > 0:
             fieldErrors['interfaceLayerThickness'] = 'Must be greater than 0'
 
+    computed = {}
+    try:
+        gridModel = gridSlicing.buildGridModel(
+            int(plateWidth), int(plateLength), baseWidthUnit, baseLengthUnit,
+            hasHalfLeft, hasHalfRight, hasHalfFront, hasHalfBack,
+        )
+        computed['totalWidthMm'] = round((gridModel.totalWidth - xyClearance * 2) * 10, 2)
+        computed['totalLengthMm'] = round((gridModel.totalLength - xyClearance * 2) * 10, 2)
+    except (ZeroDivisionError, ValueError):
+        pass
+
     return {
         'valid': len(fieldErrors) == 0,
         'fieldErrors': fieldErrors,
-        'computed': {},
+        'computed': computed,
     }
 
 

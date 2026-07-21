@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
   <div id="app">
@@ -56,6 +56,13 @@
         <span class="field-error" data-error-for="binLength"></span>
         <span class="field-error" data-error-for="binHeight"></span>
         <div class="computed" id="bin-computed-dimensions"></div>
+        <div class="half-edge-grid">
+          <label><input type="checkbox" id="bin.hasHalfLeft"> Left half unit</label>
+          <label><input type="checkbox" id="bin.hasHalfRight"> Right half unit</label>
+          <label><input type="checkbox" id="bin.hasHalfFront"> Front half unit</label>
+          <label><input type="checkbox" id="bin.hasHalfBack"> Back half unit</label>
+        </div>
+        <span class="field-hint">Adds a half-unit-wide strip to that edge (width may then be 0 if Left+Right supply the whole bin, same for length with Front+Back). Where two adjacent edges are both checked, the corner becomes a quarter-size cell.</span>
       </details>
 
       <details class="section" open>
@@ -161,6 +168,14 @@
         <label>Plate length, Y (u) <input type="number" step="1" min="1" id="baseplate.plateLength"></label>
         <span class="field-error" data-error-for="plateWidth"></span>
         <span class="field-error" data-error-for="plateLength"></span>
+        <div class="computed" id="baseplate-computed-dimensions"></div>
+        <div class="half-edge-grid">
+          <label><input type="checkbox" id="baseplate.hasHalfLeft"> Left half unit</label>
+          <label><input type="checkbox" id="baseplate.hasHalfRight"> Right half unit</label>
+          <label><input type="checkbox" id="baseplate.hasHalfFront"> Front half unit</label>
+          <label><input type="checkbox" id="baseplate.hasHalfBack"> Back half unit</label>
+        </div>
+        <span class="field-hint">Adds a half-unit-wide strip to that edge (width may then be 0 if Left+Right supply the whole plate, same for length with Front+Back). Where two adjacent edges are both checked, the corner becomes a quarter-size cell. Magnet/screw cutouts never apply to half or quarter cells.</span>
       </details>
 
       <details class="section" open>
@@ -185,6 +200,12 @@
           <span class="field-hint highlight" id="baseplate-interface-thickness-hint"></span>
         </div>
         <span class="field-hint" id="baseplate-stackable-hint"></span>
+      </details>
+
+      <details class="section" id="baseplate-dxf-sketch-fieldset" open>
+        <summary>Laser cutting</summary>
+        <label><input type="checkbox" id="baseplate.generateDxfSketch"> Generate DXF-ready sketch</label>
+        <span class="field-hint">Adds a sketch of the baseplate's mid-height cross-section, on its own construction plane, for you to export to DXF/SVG by hand (Fusion doesn't export it automatically). Verified working for Light and Stackable types; Full and Skeletonized are untested.</span>
       </details>
 
       <details class="section" id="baseplate-magnet-cutouts-fieldset" open>
@@ -374,7 +395,7 @@
       </details>
     </div>
 
-    <div class="field-hint version-footer">GridfinityGeneratorPlus<br>v1.1.2.0, July 2026</div>
+    <div class="field-hint version-footer">GridfinityGeneratorPlus<br>v1.2.0.0, July 2026</div>
   </div>
 
   <div id="modal-overlay" class="modal-overlay hidden">
@@ -388,6 +409,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=18"></script>
+  <script src="script.js?v=19"></script>
 </body>
 </html>
