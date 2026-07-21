@@ -43,10 +43,16 @@ def createGridfinityBaseplate(input: BaseplateGeneratorInput, targetComponent: a
 
         cutoutInput = BaseGeneratorInput()
         cutoutInput.xyClearance = input.xyClearance
+        # Oversized by 2*xyClearance total (baseWidth/Length below) so the cutout has
+        # xyClearance of slack around a same-size bin foot on every side; the opening must
+        # therefore be offset -xyClearance (not -2*xyClearance) from the nominal cell origin
+        # to actually center that slack evenly front/back and left/right - offsetting by the
+        # full -2*xyClearance left the opening shifted toward the front/left, measurably
+        # closer to the outer wall on the front/left than the back/right.
         cutoutInput.originPoint = geometryUtils.createOffsetPoint(
             centerOriginPoint,
-            byX=-cutoutInput.xyClearance * 2,
-            byY=-cutoutInput.xyClearance * 2,
+            byX=-cutoutInput.xyClearance,
+            byY=-cutoutInput.xyClearance,
         )
         cutoutInput.baseWidth = input.baseWidth + cutoutInput.xyClearance * 2
         cutoutInput.baseLength = input.baseLength + cutoutInput.xyClearance * 2
@@ -249,10 +255,11 @@ def createGridfinityBaseplate(input: BaseplateGeneratorInput, targetComponent: a
         # magnet/screw cutouts never apply to non-full-size cells)
         reducedCutoutInput = BaseGeneratorInput()
         reducedCutoutInput.xyClearance = input.xyClearance
+        # See the matching comment on cutoutInput.originPoint above - same centering fix.
         reducedCutoutInput.originPoint = geometryUtils.createOffsetPoint(
             targetOrigin,
-            byX=-reducedCutoutInput.xyClearance * 2,
-            byY=-reducedCutoutInput.xyClearance * 2,
+            byX=-reducedCutoutInput.xyClearance,
+            byY=-reducedCutoutInput.xyClearance,
         )
         reducedCutoutInput.baseWidth = input.baseWidth + reducedCutoutInput.xyClearance * 2
         reducedCutoutInput.baseLength = input.baseLength + reducedCutoutInput.xyClearance * 2

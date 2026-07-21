@@ -1,6 +1,6 @@
 # GridfinityGeneratorPlus
 
-Version: 1.2.0.0
+Version: 1.2.1.0
 
 By Ed Johnson (Making With An EdJ)
 
@@ -24,11 +24,16 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 6: Half-unit grid support & DXF export for laser cutting.** Add a half-unit-wide strip to any edge (Left/Right/Front/Back) of a bin or baseplate — where two checked edges meet at a corner, that cell automatically becomes quarter-size, no extra configuration needed. Baseplates can also generate a DXF-ready sketch for laser-cut fabrication.
 
 ---
+## ✨ What's New in v1.2.1
+
+* **Fixed a crash generating Shelled bins.** Shelled-type bins could fail to generate with a `Shell1 / Compute Failed // ASM_REM_NO_SOLUTION` error, caused by a bin-foot/wall alignment change shipped in v1.2.0 (see below). Reverted — Shelled bins generate correctly again.
+* **Fixed off-center baseplate cutout openings.** Baseplate grid openings had `xyClearance` more slack on the back/right of each cell than the front/left, so bin feet sat visibly off-center in the opening. Now centered evenly on all four sides.
+
 ## ✨ What's New in v1.2.0
 
 * **Half-unit edge support for bins and baseplates.** New Left/Right/Front/Back checkboxes on both tabs add a half-unit-wide strip to that edge; where two adjacent checked edges meet at a corner, that cell becomes quarter-size automatically. Core width/length can now be 0 when half-edges supply the rest of that axis — build a bin or baseplate entirely out of half- and quarter-size cells if you want to. Magnet/screw cutouts only ever apply to true full-size cells; a Skeletonized baseplate's decorative bottom groove is likewise full-cells-only, with half/quarter cells staying solid.
 * **DXF-ready sketch for laser-cut baseplates.** New "Generate DXF-ready sketch" option on the Baseplate tab adds a sketch of the plate's mid-height cross-section that you can export to DXF/SVG by hand from Fusion, for laser-cutting baseplates out of thin sheet material.
-* **Bin foot alignment fix.** Bin stacking feet now center correctly within each baseplate grid opening — previously they sat `xyClearance` off-center, most noticeable on precise/tight-clearance prints.
+* ~~**Bin foot alignment fix.** Bin stacking feet now center correctly within each baseplate grid opening — previously they sat `xyClearance` off-center, most noticeable on precise/tight-clearance prints.~~ *(Superseded by v1.2.1 — this fix was incomplete and caused a Shelled-bin crash; see above.)*
 
 ## ✨ What's New in v1.1.2
 

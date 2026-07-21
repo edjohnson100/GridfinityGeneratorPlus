@@ -159,16 +159,15 @@ def build_bin(inputState: BinInputState, component: adsk.fusion.Component, name:
     xyClearance = inputState.xyClearance
 
     baseGeneratorInput = BaseGeneratorInput()
-    # shifted by -xyClearance in X/Y (not the whole-body origin, just the base/foot
-    # sketches) so each foot cell centers correctly within its baseplate grid opening
-    # instead of sitting flush at the true origin - baseplate's own cutout cells are
-    # drawn shifted by -2*xyClearance at unshrunk width, so without this the feet
-    # end up offset by xyClearance from each opening's actual center
-    baseGeneratorInput.originPoint = geometryUtils.createOffsetPoint(
-        component.originConstructionPoint.geometry,
-        byX=-xyClearance,
-        byY=-xyClearance,
-    )
+    # Must stay flush with the bin body's own wall box (binBodyGenerator.createGridfinityBinBody
+    # draws its box unshifted, from the true origin) - the base/foot is a continuous physical
+    # surface with the wall above it, so offsetting one without the other leaves a non-coincident
+    # seam in the combined body. combineFeatures' boolean join (Hollow/Solid bins) tolerates that
+    # seam silently, but ShellFeatures' face-deletion/repair pass does not, producing
+    # "ASM_REM_NO_SOLUTION" on Shelled bins. A prior attempt shifted this by -xyClearance to
+    # better center the foot within the baseplate's own cutout opening, but that broke the bin's
+    # internal foot/wall alignment instead - reverted.
+    baseGeneratorInput.originPoint = component.originConstructionPoint.geometry
     baseGeneratorInput.baseWidth = inputState.baseWidthUnit
     baseGeneratorInput.baseLength = inputState.baseLengthUnit
     baseGeneratorInput.xyClearance = xyClearance
