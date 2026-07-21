@@ -2,7 +2,7 @@
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
-Version: 1.2.0.0
+Version: 1.2.1.0
 
 By Ed Johnson
 
@@ -236,7 +236,9 @@ This fork's development is logged in detail in [Dev\_Notes.md](http://Dev_Notes.
 - **Stacked baseplate tripling fix (v1.1.2)** — Stackable baseplates with Stack Count > 1 no longer silently produce 3x the expected bodies on export/slicing; a shared pattern-feature helper was leaving Fusion's default second-direction quantity active.
 - **DXF-ready sketch for laser-cut baseplates (v1.2.0)** — new opt-in sketch of a baseplate's mid-height cross-section, for manual DXF/SVG export and laser-cutting.
 - **Half-unit edge support for bins and baseplates (v1.2.0)** — Left/Right/Front/Back checkboxes add a half-unit-wide strip to any edge, with corners between two checked edges becoming quarter-size automatically; core width/length can be 0 when half-edges supply the rest of that axis.
-- **Bin foot alignment fix (v1.2.0)** — bin stacking feet now center correctly within each baseplate grid opening instead of sitting `xyClearance` off-center.
+- ~~**Bin foot alignment fix (v1.2.0)** — bin stacking feet now center correctly within each baseplate grid opening instead of sitting `xyClearance` off-center.~~ *(Superseded by v1.2.1 — this fix was incomplete and caused a Shelled-bin crash; see below.)*
+- **Shelled-bin crash fix (v1.2.1)** — reverted the v1.2.0 bin-foot alignment shift, which desynced the bin foot from the bin body's wall and caused Shelled-type bins to fail generation with an `ASM_REM_NO_SOLUTION` error.
+- **Off-center baseplate cutout fix (v1.2.1)** — corrected the actual root cause of the off-center grid openings (an incorrect clearance offset in the baseplate cutout geometry itself), now centered evenly on all four sides.
 
 ---
 
