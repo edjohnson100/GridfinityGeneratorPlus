@@ -176,40 +176,53 @@ body {
   display: none !important;
 }
 
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+h2 {
+  margin: 0 0 2px 0;
+  font-size: calc(var(--font-size-base) + 1px);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.sub-header {
+  color: var(--text-sub);
+  font-size: calc(var(--font-size-base) - 2px);
+  font-style: italic;
+}
+
 .tabs {
   display: flex;
-  gap: 4px;
+  border-bottom: 2px solid var(--border-color);
   margin-bottom: 8px;
-  background: var(--row-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 4px 4px 0 0;
-  padding: 4px 4px 0;
-  background-color: var(--btn-primary);
 }
 
 .tab-button {
   flex: 1;
-  padding: 6px;
-  border: 1px solid var(--border-color);
   background: var(--tab-bg);
   color: var(--tab-text);
+  border: none;
+  padding: 8px 2px;
   cursor: pointer;
+  font-weight: bold;
   border-radius: 4px 4px 0 0;
-  opacity: 1;
 }
 
 .tab-button:hover:not(.active) {
-  background: var(--header-hover);
-  opacity: 1;
+  background: var(--tab-active-bg);
+  opacity: 0.8;
 }
 
 .tab-button.active {
   background: var(--tab-active-bg);
   color: var(--tab-active-text);
-  font-weight: bold;
-  opacity: 1;
-  border-bottom: 4px solid var(--btn-primary);
-  box-shadow: 0 -1px 0 var(--btn-primary) inset;
+  border-bottom: 2px solid var(--tab-active-text);
+  margin-bottom: -2px;
 }
 
 .tab-panel {

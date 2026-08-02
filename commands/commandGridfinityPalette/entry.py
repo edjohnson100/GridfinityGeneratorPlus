@@ -43,7 +43,7 @@ CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'c
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
 
 PALETTE_TITLE = 'GridfinityGeneratorPlus'
-PALETTE_VERSION = 25
+PALETTE_VERSION = 27
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Local list of event handlers for the command button.
@@ -235,7 +235,7 @@ def start():
 
     cmd_def = ui.commandDefinitions.addButtonDefinition(CMD_ID, CMD_NAME, CMD_Description, ICON_FOLDER)
 
-    tool_clip_path = os.path.join(RESOURCES_FOLDER, 'GFPlusAppIcon_192.png')
+    tool_clip_path = os.path.join(RESOURCES_FOLDER, 'toolClip.png')
     if os.path.exists(tool_clip_path):
         cmd_def.toolClipFilename = tool_clip_path
 

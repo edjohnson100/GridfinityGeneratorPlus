@@ -2,11 +2,11 @@
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
-Version: 1.2.1.0
+Version: 1.3.0.0
 
 By Ed Johnson
 
-July, 2026
+August, 2026
 
 ---
 
@@ -118,7 +118,7 @@ Dimension lists can be saved as named, reloadable sets (e.g. “Kitchen Drawers,
 
 ### Theme (new)
 
-Customize the palette's appearance. Choose **System** (follows your OS's light/dark setting automatically — the default), or one of the built-in themes: **Light**, **Dark**, **Midnight**, or **Sandstone**. You can also **import a custom .theme.json** file exported from any Theme Designer Pro–compatible tool — every theme you import is remembered and stays available in the dropdown across restarts, whether or not it's the one currently active. Sample themes are provided in the resources/themes/ folder.
+Customize the palette's appearance. The theme selector lives in the **header at the top of the palette** (not on this tab) — choose **System** (follows your OS's light/dark setting automatically — the default), or one of the built-in themes: **Light**, **Dark**, **Midnight**, or **Sandstone**. You can also **import a custom .theme.json** file exported from any Theme Designer Pro–compatible tool from the Theme tab below — every theme you import is remembered and stays available in the header dropdown across restarts, whether or not it's the one currently active. Sample themes are provided in the resources/themes/ folder.
 
 Two additional controls apply on top of whichever theme is selected:
 
@@ -239,6 +239,7 @@ This fork's development is logged in detail in [Dev\_Notes.md](http://Dev_Notes.
 - ~~**Bin foot alignment fix (v1.2.0)** — bin stacking feet now center correctly within each baseplate grid opening instead of sitting `xyClearance` off-center.~~ *(Superseded by v1.2.1 — this fix was incomplete and caused a Shelled-bin crash; see below.)*
 - **Shelled-bin crash fix (v1.2.1)** — reverted the v1.2.0 bin-foot alignment shift, which desynced the bin foot from the bin body's wall and caused Shelled-type bins to fail generation with an `ASM_REM_NO_SOLUTION` error.
 - **Off-center baseplate cutout fix (v1.2.1)** — corrected the actual root cause of the off-center grid openings (an incorrect clearance offset in the baseplate cutout geometry itself), now centered evenly on all four sides.
+- **Palette header & tab bar fixes (v1.3.0)** — the palette gained a header bar (title, version, theme selector) at the top, matching the layout used across Ed's other Fusion add-ins; the theme selector moved here from the Theme tab. Also fixed inconsistent tab-button CSS that was drawing a boxed border around every tab instead of the intended flat underline style.
 
 ---
 

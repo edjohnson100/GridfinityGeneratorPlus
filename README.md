@@ -1,10 +1,10 @@
 # GridfinityGeneratorPlus
 
-Version: 1.2.1.0
+Version: 1.3.0.0
 
 By Ed Johnson (Making With An EdJ)
 
-July, 2026
+August, 2026
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
@@ -24,6 +24,11 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 6: Half-unit grid support & DXF export for laser cutting.** Add a half-unit-wide strip to any edge (Left/Right/Front/Back) of a bin or baseplate — where two checked edges meet at a corner, that cell automatically becomes quarter-size, no extra configuration needed. Baseplates can also generate a DXF-ready sketch for laser-cut fabrication.
 
 ---
+## ✨ What's New in v1.3.0
+
+* **New palette header.** The palette now has a header bar at the top with the add-in title, version, and the theme selector (moved here from the Theme tab, which still holds font family/size, import/export, and Remove Selected Theme).
+* **Tab bar visual fix.** Corrected inconsistent CSS that was giving every tab button a boxed border instead of the intended flat underline style.
+
 ## ✨ What's New in v1.2.1
 
 * **Fixed a crash generating Shelled bins.** Shelled-type bins could fail to generate with a `Shell1 / Compute Failed // ASM_REM_NO_SOLUTION` error, caused by a bin-foot/wall alignment change shipped in v1.2.0 (see below). Reverted — Shelled bins generate correctly again.

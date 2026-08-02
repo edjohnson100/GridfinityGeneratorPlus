@@ -2,10 +2,24 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
   <div id="app">
+    <div class="header">
+      <div>
+        <h2>GridfinityGeneratorPlus</h2>
+        <div id="versionTag" class="sub-header">v1.3.0.0</div>
+      </div>
+      <select id="theme.name" style="width: auto; height: 28px; font-size: 11px; padding: 2px 5px;">
+        <option value="System">System (Default)</option>
+        <option value="Light">Light</option>
+        <option value="Dark">Dark</option>
+        <option value="Midnight">Midnight</option>
+        <option value="Sandstone">Sandstone</option>
+      </select>
+    </div>
+
     <fieldset id="common-panel">
       <legend>Common settings (shared by Bin &amp; Baseplate)</legend>
       <label>Base width unit, X (mm) <input type="number" step="0.1" id="common.baseWidthUnit"></label>
@@ -360,16 +374,7 @@
     <div id="tab-theme" class="tab-panel">
       <details class="section" open>
         <summary>Theme</summary>
-        <label>Theme
-          <select id="theme.name">
-            <option value="System">System (Default)</option>
-            <option value="Light">Light</option>
-            <option value="Dark">Dark</option>
-            <option value="Midnight">Midnight</option>
-            <option value="Sandstone">Sandstone</option>
-          </select>
-        </label>
-        <span class="field-hint">"System" follows your OS's light/dark setting automatically.</span>
+        <span class="field-hint">"System" (in the header above) follows your OS's light/dark setting automatically.</span>
 
         <label>Font family
           <select id="theme.fontFamily">
@@ -395,7 +400,7 @@
       </details>
     </div>
 
-    <div class="field-hint version-footer">GridfinityGeneratorPlus<br>v1.2.1.0, July 2026</div>
+    <div class="field-hint version-footer">GridfinityGeneratorPlus<br>v1.3.0.0, August 2026</div>
   </div>
 
   <div id="modal-overlay" class="modal-overlay hidden">
