@@ -201,6 +201,17 @@ body {
   min-height: 2160px;
 }
 
+/* Form controls don't inherit font-family/font-size from ancestors by default
+   (UA stylesheet sets its own control font) -- without this, Font Family/Base
+   Font Size in the Themes tab visibly do nothing to buttons/selects/inputs. */
+button,
+select,
+input,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
 .hidden {
   display: none !important;
 }
@@ -296,7 +307,7 @@ details.section > summary::-webkit-details-marker {
 details.section > summary::before {
   content: '\25B6';
   display: inline-block;
-  font-size: 9px;
+  font-size: calc(var(--font-size-base) - 3px);
   width: 1em;
   transition: transform 0.1s ease;
 }
@@ -445,7 +456,7 @@ button[data-action="factory_reset"][data-tab="theme"] {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  font-size: 14px;
+  font-size: calc(var(--font-size-base) + 2px);
   line-height: 1;
   color: var(--text-sub);
   cursor: help;
@@ -465,7 +476,7 @@ button[data-action="factory_reset"][data-tab="theme"] {
   border: 1px solid var(--border-color);
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  font-size: 11px;
+  font-size: calc(var(--font-size-base) - 1px);
   font-style: italic;
   line-height: 1.4;
   transition: opacity 0.12s ease;

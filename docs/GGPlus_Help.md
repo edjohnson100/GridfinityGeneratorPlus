@@ -2,7 +2,7 @@
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
-Version: 1.4.0.0
+Version: 1.4.1.0
 
 By Ed Johnson
 
@@ -123,7 +123,7 @@ Customize the palette's appearance. The theme selector lives in the **header at 
 Two additional controls apply on top of whichever theme is selected:
 
 - **Font family** — Sans-serif, Serif, or Monospace.  
-- **Base font size (px)** — scales the palette's body text; hint and error text scale proportionally with it.
+- **Base font size (px)** — scales the whole palette (text, buttons, dropdowns, and text fields); hint and error text scale proportionally with it.
 
 Once you're happy with a look (including any font tweaks), click **Export theme.json…** to save it as a shareable file — this captures the full effective theme, whether it started as a built-in or an imported one. **Import theme.json…** brings one back in. For backing up or sharing several custom themes at once, **Export style.css…** / **Import style.css…** bundle every custom theme's colors into (or out of) a single CSS file (one `:root[data-theme="Name"]` block per theme) — built-in-named blocks are skipped on import, since the built-in themes can't be overridden this way. **Remove imported theme** deletes a theme you previously imported (disabled for the built-in themes, which can't be removed); re-importing a theme with the same name as an existing one simply overwrites it, so there's no need to remove one before importing an updated version of it. **Factory Reset** permanently clears every imported theme and resets the font controls back to default — it asks for confirmation first, since it can't be undone.
 
@@ -241,6 +241,7 @@ A condensed summary of major milestones:
 - **Off-center baseplate cutout fix (v1.2.1)** — corrected the actual root cause of the off-center grid openings (an incorrect clearance offset in the baseplate cutout geometry itself), now centered evenly on all four sides.
 - **Palette header & tab bar fixes (v1.3.0)** — the palette gained a header bar (title, version, theme selector) at the top, matching the layout used across Ed's other Fusion add-ins; the theme selector moved here from the Theme tab. Also fixed inconsistent tab-button CSS that was drawing a boxed border around every tab instead of the intended flat underline style.
 - **Fleet UI standardization completed, plus an accessibility pass (v1.4.0)** — the "Theme" tab is renamed **Themes** (plural) and its content restructured to match the fleet standard; **Common Settings** is now collapsible like every other panel; the Themes tab gained CSS-bundle (`style.css`) import/export alongside the existing single-theme `.theme.json` import/export, and a Factory Reset button for clearing every imported theme at once. Separately, every button's foreground color now goes through a themed `--btn-primary-text`/`--btn-danger-text` variable (checked against WCAG AA contrast per built-in theme — Midnight and Sandstone needed dark text, not white, on their bright accent buttons), every interactive element shows a visible keyboard-only focus ring, and the confirmation-modal backdrop is themed instead of a fixed black tint.
+- **Font controls now reach every element (v1.4.1)** — Font Family/Base Font Size on the Themes tab previously only scaled body text; buttons, dropdowns, and text fields silently kept the browser's default UI font. Fixed fleet-wide with an explicit font inheritance rule for form controls.
 
 ---
 

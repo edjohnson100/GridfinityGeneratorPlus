@@ -1,6 +1,6 @@
 # GridfinityGeneratorPlus
 
-Version: 1.4.0.0
+Version: 1.4.1.0
 
 By Ed Johnson (Making With An EdJ)
 
@@ -24,6 +24,10 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 6: Half-unit grid support & DXF export for laser cutting.** Add a half-unit-wide strip to any edge (Left/Right/Front/Back) of a bin or baseplate — where two checked edges meet at a corner, that cell automatically becomes quarter-size, no extra configuration needed. Baseplates can also generate a DXF-ready sketch for laser-cut fabrication.
 
 ---
+## ✨ What's New in v1.4.1
+
+* **Font Family/Base Font Size now actually reach every control.** A gap in the fleet accessibility pass: buttons, dropdowns, and text fields in the palette were silently ignoring the Themes tab's font settings (only body text scaled) because browsers don't apply an ancestor's font to form controls by default. Fixed — every interactive control in the palette now tracks Font Family and Base Font Size correctly.
+
 ## ✨ What's New in v1.4.0
 
 * **Fleet UI standardization, completed.** This add-in's palette now matches the structural standard shared across Ed's Fusion add-in fleet: the "Theme" tab is renamed **Themes** (plural), and **Common Settings** is now a collapsible section like every other panel in the palette, instead of an always-expanded box.
