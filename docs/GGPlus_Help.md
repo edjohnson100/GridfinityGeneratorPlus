@@ -2,7 +2,7 @@
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
-Version: 1.3.0.0
+Version: 1.4.0.0
 
 By Ed Johnson
 
@@ -41,7 +41,7 @@ If you’ve used the original GridfinityGenerator, here’s what’s different:E
 | Saved presets | None | Named, savable/loadable configurations per tab |
 | Baseplate types | Light, Skeletonized, Full | Adds **Stackable** — a fourth type designed to physically stack |
 | Grid sizing | Manual guesswork for custom (non-42mm) grids | **Grid Optimizer** tab recommends an optimal custom pitch from your real drawer/cabinet measurements |
-| Appearance | Fixed light theme | **Theme** tab — built-in themes, OS dark-mode following, and importable custom themes |
+| Appearance | Fixed light theme | **Themes** tab — built-in themes, OS dark-mode following, and importable custom themes (single `.theme.json` or a multi-theme `style.css` bundle) |
 | Window state | Resets every session | Palette size/position/docking remembered across sessions |
 
 ---
@@ -54,7 +54,7 @@ If you’ve used the original GridfinityGenerator, here’s what’s different:E
 
 **Set your Common settings.** At the top of the palette, above the tabs, set your base grid unit (default 42mm), XY clearance, and magnet cutout size once — these are shared by both the Bin and Baseplate tabs so they always stay compatible with each other.
 
-**Pick a tab and set your parameters.** Switch between **Bin**, **Baseplate**, **Grid Optimizer**, and **Theme** using the tab strip. Each field group is a collapsible section — expand or collapse what you need.
+**Pick a tab and set your parameters.** Switch between **Bin**, **Baseplate**, **Grid Optimizer**, and **Themes** using the tab strip. Each field group is a collapsible section — expand or collapse what you need, including the **Common Settings** panel above the tabs.
 
 **Preview, then Generate.** Click **Update Preview** to see the result in the viewport before committing to anything (this can be re-run as many times as you like, replacing the previous preview). When you’re happy with it, click **Generate** to make it a permanent part of your design. **Clear Preview** removes a preview without generating.
 
@@ -116,16 +116,16 @@ Click any column heading (**Description**, **Width**, or **Depth**) to sort the 
 
 Dimension lists can be saved as named, reloadable sets (e.g. “Kitchen Drawers,” “Workbench Cabinet”) just like Bin and Baseplate configurations.
 
-### Theme (new)
+### Themes (new)
 
-Customize the palette's appearance. The theme selector lives in the **header at the top of the palette** (not on this tab) — choose **System** (follows your OS's light/dark setting automatically — the default), or one of the built-in themes: **Light**, **Dark**, **Midnight**, or **Sandstone**. You can also **import a custom .theme.json** file exported from any Theme Designer Pro–compatible tool from the Theme tab below — every theme you import is remembered and stays available in the header dropdown across restarts, whether or not it's the one currently active. Sample themes are provided in the resources/themes/ folder.
+Customize the palette's appearance. The theme selector lives in the **header at the top of the palette** (not on this tab) — choose **System** (follows your OS's light/dark setting automatically — the default), or one of the built-in themes: **Light**, **Dark**, **Midnight**, or **Sandstone**. You can also import custom themes from the Themes tab below — every theme you import is remembered and stays available in the header dropdown across restarts, whether or not it's the one currently active. Sample themes are provided in the resources/themes/ folder.
 
 Two additional controls apply on top of whichever theme is selected:
 
 - **Font family** — Sans-serif, Serif, or Monospace.  
 - **Base font size (px)** — scales the palette's body text; hint and error text scale proportionally with it.
 
-Once you're happy with a look (including any font tweaks), click **Export theme.json…** to save it as a shareable file — this captures the full effective theme, whether it started as a built-in or an imported one. **Remove imported theme** deletes a theme you previously imported (disabled for the built-in themes, which can't be removed); re-importing a .theme.json with the same name as an existing one simply overwrites it, so there's no need to remove one before importing an updated version of it.
+Once you're happy with a look (including any font tweaks), click **Export theme.json…** to save it as a shareable file — this captures the full effective theme, whether it started as a built-in or an imported one. **Import theme.json…** brings one back in. For backing up or sharing several custom themes at once, **Export style.css…** / **Import style.css…** bundle every custom theme's colors into (or out of) a single CSS file (one `:root[data-theme="Name"]` block per theme) — built-in-named blocks are skipped on import, since the built-in themes can't be overridden this way. **Remove imported theme** deletes a theme you previously imported (disabled for the built-in themes, which can't be removed); re-importing a theme with the same name as an existing one simply overwrites it, so there's no need to remove one before importing an updated version of it. **Factory Reset** permanently clears every imported theme and resets the font controls back to default — it asks for confirmation first, since it can't be undone.
 
 ---
 
@@ -171,7 +171,7 @@ To use it: hover over the component you want to change in the Fusion browser tre
 
 | Command | Description |
 | :---- | :---- |
-| **GridfinityGeneratorPlus** | Opens the GridfinityGeneratorPlus palette (Solid Create panel). The palette stays open and docked; use its tabs to switch between Bin, Baseplate, Grid Optimizer, and Theme. |
+| **GridfinityGeneratorPlus** | Opens the GridfinityGeneratorPlus palette (Solid Create panel). The palette stays open and docked; use its tabs to switch between Bin, Baseplate, Grid Optimizer, and Themes. |
 
 *(The original GridfinityGenerator exposed two separate commands, “Gridfinity bin” and “Gridfinity baseplate,” each opening its own dialog. This fork consolidates both — and the newer tabs — into the single palette command above.)*
 
@@ -240,6 +240,7 @@ This fork's development is logged in detail in [Dev\_Notes.md](http://Dev_Notes.
 - **Shelled-bin crash fix (v1.2.1)** — reverted the v1.2.0 bin-foot alignment shift, which desynced the bin foot from the bin body's wall and caused Shelled-type bins to fail generation with an `ASM_REM_NO_SOLUTION` error.
 - **Off-center baseplate cutout fix (v1.2.1)** — corrected the actual root cause of the off-center grid openings (an incorrect clearance offset in the baseplate cutout geometry itself), now centered evenly on all four sides.
 - **Palette header & tab bar fixes (v1.3.0)** — the palette gained a header bar (title, version, theme selector) at the top, matching the layout used across Ed's other Fusion add-ins; the theme selector moved here from the Theme tab. Also fixed inconsistent tab-button CSS that was drawing a boxed border around every tab instead of the intended flat underline style.
+- **Fleet UI standardization completed, plus an accessibility pass (v1.4.0)** — the "Theme" tab is renamed **Themes** (plural) and its content restructured to match the fleet standard; **Common Settings** is now collapsible like every other panel; the Themes tab gained CSS-bundle (`style.css`) import/export alongside the existing single-theme `.theme.json` import/export, and a Factory Reset button for clearing every imported theme at once. Separately, every button's foreground color now goes through a themed `--btn-primary-text`/`--btn-danger-text` variable (checked against WCAG AA contrast per built-in theme — Midnight and Sandstone needed dark text, not white, on their bright accent buttons), every interactive element shows a visible keyboard-only focus ring, and the confirmation-modal backdrop is themed instead of a fixed black tint.
 
 ---
 

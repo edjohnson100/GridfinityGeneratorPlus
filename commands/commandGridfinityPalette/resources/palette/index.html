@@ -2,14 +2,14 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
   <div id="app">
     <div class="header">
       <div>
         <h2>GridfinityGeneratorPlus</h2>
-        <div id="versionTag" class="sub-header">v1.3.0.0</div>
+        <div id="versionTag" class="sub-header">v1.4.0.0</div>
       </div>
       <select id="theme.name" style="width: auto; height: 28px; font-size: 11px; padding: 2px 5px;">
         <option value="System">System (Default)</option>
@@ -20,8 +20,8 @@
       </select>
     </div>
 
-    <fieldset id="common-panel">
-      <legend>Common settings (shared by Bin &amp; Baseplate)</legend>
+    <details class="section" id="common-panel" open>
+      <summary>Common Settings (shared by Bin &amp; Baseplate)</summary>
       <label>Base width unit, X (mm) <input type="number" step="0.1" id="common.baseWidthUnit"></label>
       <label>Base length unit, Y (mm) <input type="number" step="0.1" id="common.baseLengthUnit"></label>
       <label>XY clearance (mm) <input type="number" step="0.01" id="common.xyClearance"></label>
@@ -35,7 +35,7 @@
       <div class="actions secondary">
         <button type="button" data-action="factory_reset" data-tab="common">Factory Reset</button>
       </div>
-    </fieldset>
+    </details>
 
     <div class="actions secondary edit-active-row">
       <span class="info-icon" tabindex="0" role="img" aria-label="Info">&#9432;
@@ -48,7 +48,7 @@
       <button class="tab-button active" data-tab="bin">Bin</button>
       <button class="tab-button" data-tab="baseplate">Baseplate</button>
       <button class="tab-button" data-tab="optimizer">Grid Optimizer</button>
-      <button class="tab-button" data-tab="theme">Theme</button>
+      <button class="tab-button" data-tab="theme">Themes</button>
     </div>
 
     <div id="notification" class="notification hidden"></div>
@@ -373,7 +373,7 @@
 
     <div id="tab-theme" class="tab-panel">
       <details class="section" open>
-        <summary>Theme</summary>
+        <summary>Themes</summary>
         <span class="field-hint">"System" (in the header above) follows your OS's light/dark setting automatically.</span>
 
         <label>Font family
@@ -390,17 +390,24 @@
 
         <div class="actions secondary">
           <button type="button" id="theme-import">Import theme.json&hellip;</button>
+          <button type="button" id="theme-export">Export theme.json&hellip;</button>
           <input type="file" id="theme-import-input" accept="application/json,.json" class="hidden">
         </div>
         <div class="actions secondary">
-          <button type="button" id="theme-export">Export theme.json&hellip;</button>
+          <button type="button" id="theme-import-css">Import style.css&hellip;</button>
+          <button type="button" id="theme-export-css">Export style.css&hellip;</button>
+          <input type="file" id="theme-import-css-input" accept="text/css,.css" class="hidden">
+        </div>
+        <span class="field-hint">CSS import reads every <code>:root[data-theme="Name"]</code> block from the file as a custom theme (built-in-named blocks are skipped, since Light/Dark/Midnight/Sandstone can't be overridden this way).</span>
+        <div class="actions secondary">
           <button type="button" id="theme-remove" disabled>Remove imported theme</button>
+          <button type="button" data-action="factory_reset" data-tab="theme">Factory Reset</button>
         </div>
         <span class="field-hint" id="theme-import-hint"></span>
       </details>
     </div>
 
-    <div class="field-hint version-footer">GridfinityGeneratorPlus<br>v1.3.0.0, August 2026</div>
+    <div class="field-hint version-footer">GridfinityGeneratorPlus<br>v1.4.0.0, August 2026</div>
   </div>
 
   <div id="modal-overlay" class="modal-overlay hidden">
@@ -414,6 +421,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=19"></script>
+  <script src="script.js?v=20"></script>
 </body>
 </html>

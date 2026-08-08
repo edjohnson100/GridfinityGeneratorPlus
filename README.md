@@ -1,6 +1,6 @@
 # GridfinityGeneratorPlus
 
-Version: 1.3.0.0
+Version: 1.4.0.0
 
 By Ed Johnson (Making With An EdJ)
 
@@ -20,10 +20,17 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 2: Settings travel with the file.** Every generated part remembers the exact parameters that built it, stored directly on the component itself. Reopen a design months later, or share the `.f3d` with someone else running this add-in, and click **Edit Active Component** to pick up right where you left off.
 * **Feature 3: Grid Optimizer.** Building a custom (non-42mm) grid to fit a specific drawer or cabinet? Enter your real measurements and let the optimizer recommend a pitch that minimizes wasted space, instead of guessing.
 * **Feature 4: Stackable baseplates.** A fourth baseplate type, made symmetric top-to-bottom so it can be printed and physically stacked with no overhang, with configurable interface layers between plates.
-* **Feature 5: Theme tab.** Customize the palette's appearance — built-in themes, automatic OS dark-mode following, and support for importing your own custom themes.
+* **Feature 5: Themes tab.** Customize the palette's appearance — built-in themes, automatic OS dark-mode following, and import/export of your own custom themes as either a single `.theme.json` file or a multi-theme `style.css` bundle.
 * **Feature 6: Half-unit grid support & DXF export for laser cutting.** Add a half-unit-wide strip to any edge (Left/Right/Front/Back) of a bin or baseplate — where two checked edges meet at a corner, that cell automatically becomes quarter-size, no extra configuration needed. Baseplates can also generate a DXF-ready sketch for laser-cut fabrication.
 
 ---
+## ✨ What's New in v1.4.0
+
+* **Fleet UI standardization, completed.** This add-in's palette now matches the structural standard shared across Ed's Fusion add-in fleet: the "Theme" tab is renamed **Themes** (plural), and **Common Settings** is now a collapsible section like every other panel in the palette, instead of an always-expanded box.
+* **CSS-bundle theme import/export.** Alongside the existing single-theme `.theme.json` import/export, the Themes tab can now import/export a multi-theme `style.css` bundle (one `:root[data-theme="Name"]` block per custom theme) — useful for backing up or sharing several custom themes at once.
+* **Factory Reset for Themes.** A new Factory Reset button on the Themes tab permanently clears every imported theme and resets font settings back to default (with a confirmation prompt first, since it can't be undone).
+* **Accessibility pass.** Every button's text color now goes through a themed `--btn-primary-text`/`--btn-danger-text` variable instead of a hardcoded white, checked against WCAG AA contrast for all four built-in themes (Midnight and Sandstone's bright accent buttons needed dark text, not white, to stay readable). Keyboard (Tab) focus is now visibly outlined on every button, input, dropdown, and collapsible section header, without adding an outline on mouse clicks. The confirmation-modal backdrop is also now themed instead of a fixed black tint.
+
 ## ✨ What's New in v1.3.0
 
 * **New palette header.** The palette now has a header bar at the top with the add-in title, version, and the theme selector (moved here from the Theme tab, which still holds font family/size, import/export, and Remove Selected Theme).

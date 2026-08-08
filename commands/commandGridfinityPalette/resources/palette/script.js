@@ -162,6 +162,18 @@ function onSetState(payload) {
     const tab = payload.tab;
     const cmForm = payload.form;
     if (tab === 'theme') {
+        if (payload.source === 'factory_reset') {
+            // The host wiped imported_themes.json entirely -- drop every imported
+            // <option> and cached vars rather than just merging in payload.importedThemes
+            // (which is now `{}` and would otherwise leave stale entries behind).
+            Object.keys(importedThemes).forEach(id => delete importedThemes[id]);
+            const select = document.getElementById('theme.name');
+            Array.from(select.options).forEach(opt => {
+                if (!BUILTIN_THEME_NAMES.includes(opt.value)) select.removeChild(opt);
+            });
+            const dynamicTag = document.getElementById('dynamic-theme-overrides');
+            if (dynamicTag) dynamicTag.remove();
+        }
         state.forms.theme = cmForm;
         // Strip any font vars persisted by an older version of the import flow --
         // otherwise a previously-imported theme's baked-in font would still
@@ -177,6 +189,9 @@ function onSetState(payload) {
         applyTheme(cmForm.name, importedThemes[cmForm.name] || null);
         applyFontOverrides(cmForm.fontFamily, cmForm.fontSize);
         updateThemeRemoveButtonState();
+        if (payload.source === 'factory_reset') {
+            showNotification('success', 'Themes reset to defaults');
+        }
         return;
     }
     state.forms[tab] = cmForm;
@@ -915,6 +930,17 @@ document.querySelectorAll('button[data-action]').forEach(btn => {
             sendToFusion(action, { tab });
             return;
         }
+        if (tab === 'theme') {
+            if (action === 'factory_reset') {
+                const ok = await showConfirmModal(
+                    'This permanently deletes every imported theme and resets font settings to default. Continue?',
+                    { title: 'Factory Reset Themes', confirmLabel: 'Reset', danger: true },
+                );
+                if (!ok) return;
+            }
+            sendToFusion(action, { tab });
+            return;
+        }
         if (!(await confirmPreviewReplace(action, tab))) return;
         const cmForm = readTabFormMergedWithCommon(tab);
         state.forms[tab] = cmForm;
@@ -1199,6 +1225,102 @@ document.getElementById('theme-remove').addEventListener('click', async () => {
     sendToFusion('remove_imported_theme', { id: name });
     sendToFusion('update_theme', { form: state.forms.theme });
     document.getElementById('theme-import-hint').textContent = `Removed "${name}"`;
+});
+
+// ---- Theme CSS-bundle import/export ----
+// GGPlus's own style.css is full of project-specific layout rules (tabs, tables,
+// compartments...) that aren't portable to another project, so unlike the fleet's
+// LiveUtilities reference (which exports a complete drop-in stylesheet), this bundle
+// is just the color-variable blocks -- the same var set as the single-theme .theme.json
+// export above, one `:root[data-theme="Name"]` block per theme. Built-in-named blocks
+// are never accepted on import since there's no per-variable color editor here to make
+// overriding a built-in meaningful (unlike LiveUtilities' live-editable theme model).
+function parseStyleCssThemeBlocks(cssText) {
+    const blockRegex = /:root(?:\[data-theme=["']([^"']+)["']\])?\s*\{([^}]*)\}/g;
+    const themes = {};
+    let match;
+    while ((match = blockRegex.exec(cssText)) !== null) {
+        const id = match[1] || 'Light';
+        const content = match[2];
+        const vars = {};
+        const varRegex = /(--[\w-]+)\s*:\s*([^;]+?)(?=\s*;|\s*$)/g;
+        let vMatch;
+        while ((vMatch = varRegex.exec(content)) !== null) {
+            vars[vMatch[1].trim()] = vMatch[2].trim();
+        }
+        themes[id] = vars;
+    }
+    return themes;
+}
+
+function themeBlockToCss(id, vars) {
+    const selector = id === 'Light' ? ':root' : `:root[data-theme="${id}"]`;
+    let out = `${selector} {\n`;
+    THEME_VAR_NAMES.forEach(name => {
+        if (vars[name]) out += `  ${name}: ${vars[name]};\n`;
+    });
+    out += `}\n\n`;
+    return out;
+}
+
+document.getElementById('theme-export-css').addEventListener('click', async () => {
+    let builtIn = {};
+    try {
+        const res = await fetch('style.css');
+        if (!res.ok) throw new Error('fetch failed');
+        builtIn = parseStyleCssThemeBlocks(await res.text());
+    } catch (e) {
+        showNotification('error', 'Could not read style.css to build the export bundle');
+        return;
+    }
+    let out = '';
+    BUILTIN_THEME_NAMES.filter(name => name !== 'System').forEach(id => {
+        if (builtIn[id]) out += themeBlockToCss(id, builtIn[id]);
+    });
+    Object.entries(importedThemes).forEach(([id, vars]) => {
+        out += themeBlockToCss(id, vars);
+    });
+    sendToFusion('export_theme', { file_type: 'css', content: out.trim() + '\n', default_name: 'GGPlus_themes.css' });
+});
+
+document.getElementById('theme-import-css').addEventListener('click', () => {
+    document.getElementById('theme-import-css-input').click();
+});
+
+document.getElementById('theme-import-css-input').addEventListener('change', (evt) => {
+    const file = evt.target.files && evt.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const parsed = parseStyleCssThemeBlocks(reader.result);
+            const customIds = Object.keys(parsed).filter(id => !BUILTIN_THEME_NAMES.includes(id));
+            if (customIds.length === 0) {
+                document.getElementById('theme-import-hint').textContent =
+                    'No custom (non-built-in) theme blocks found in that file';
+                return;
+            }
+            customIds.forEach(id => {
+                importedThemes[id] = parsed[id];
+                ensureThemeOption(id, `${id} (imported)`);
+                sendToFusion('save_imported_theme', { id, vars: parsed[id] });
+            });
+            const firstId = customIds[0];
+            document.getElementById('theme.name').value = firstId;
+            state.forms.theme = { ...state.forms.theme, name: firstId };
+            applyTheme(firstId, importedThemes[firstId]);
+            updateThemeRemoveButtonState();
+            sendToFusion('update_theme', { form: state.forms.theme });
+            const skipped = Object.keys(parsed).length - customIds.length;
+            document.getElementById('theme-import-hint').textContent =
+                `Imported ${customIds.length} theme(s)${skipped ? `, skipped ${skipped} built-in-named block(s)` : ''}`;
+        } catch (e) {
+            document.getElementById('theme-import-hint').textContent =
+                'Could not read that file — expected a Theme Designer Pro style.css export';
+        }
+    };
+    reader.readAsText(file);
+    evt.target.value = '';
 });
 
 // ---- Bridge readiness ----

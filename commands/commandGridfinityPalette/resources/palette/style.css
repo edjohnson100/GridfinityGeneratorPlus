@@ -24,6 +24,7 @@
 
   --btn-primary: #2b6cb0;
   --btn-primary-hover: #235a91;
+  --btn-primary-text: #ffffff;
   --btn-secondary: #eeeeee;
   --btn-secondary-hover: #dddddd;
   --btn-secondary-text: #1a1a1a;
@@ -39,6 +40,16 @@
   --banner-warning-bg: #fff8e1;
   --banner-warning-text: #8a6d00;
   --banner-warning-border: #e6c200;
+
+  /* Accessibility (Theme Designer Pro WCAG contrast-checking pass) */
+  --focus-ring: #0078d4;
+  --text-danger: #c0392b;
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  /* Text color for the danger-styled modal confirm button, whose background is
+     --status-error-text itself -- computed per-theme since that background's
+     lightness varies too much across themes for one hardcoded foreground to
+     stay WCAG AA (4.5:1) in all of them. */
+  --btn-danger-text: #ffffff;
 }
 
 :root[data-theme="Dark"] {
@@ -64,6 +75,7 @@
 
   --btn-primary: #2b6cb0;
   --btn-primary-hover: #3a7ec2;
+  --btn-primary-text: #ffffff;
   --btn-secondary: #333333;
   --btn-secondary-hover: #444444;
   --btn-secondary-text: #eeeeee;
@@ -78,6 +90,11 @@
   --banner-warning-bg: #3a3210;
   --banner-warning-text: #f0d878;
   --banner-warning-border: #6b5c1a;
+
+  --focus-ring: #5eb3f5;
+  --text-danger: #e57373;
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+  --btn-danger-text: #1e1e1e;
 }
 
 :root[data-theme="Midnight"] {
@@ -103,6 +120,7 @@
 
   --btn-primary: #4d7fdb;
   --btn-primary-hover: #6494e6;
+  --btn-primary-text: #0d1321;
   --btn-secondary: #1e2c4d;
   --btn-secondary-hover: #263a5e;
   --btn-secondary-text: #dce4f0;
@@ -117,6 +135,11 @@
   --banner-warning-bg: #332a12;
   --banner-warning-text: #f0d878;
   --banner-warning-border: #5e4c1a;
+
+  --focus-ring: #7fb3f0;
+  --text-danger: #f08fc0;
+  --overlay-bg: rgba(0, 0, 0, 0.65);
+  --btn-danger-text: #0d1321;
 }
 
 :root[data-theme="Sandstone"] {
@@ -142,6 +165,7 @@
 
   --btn-primary: #c1712f;
   --btn-primary-hover: #a45f25;
+  --btn-primary-text: #241a0c;
   --btn-secondary: #eee2c8;
   --btn-secondary-hover: #e0d2ac;
   --btn-secondary-text: #4a3f30;
@@ -156,6 +180,11 @@
   --banner-warning-bg: #f2e2b8;
   --banner-warning-text: #6b4f14;
   --banner-warning-border: #d1b46a;
+
+  --focus-ring: #8a4e1a;
+  --text-danger: #a8402c;
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  --btn-danger-text: #ffffff;
 }
 
 * {
@@ -174,6 +203,17 @@ body {
 
 .hidden {
   display: none !important;
+}
+
+/* Keyboard-only focus indicator (never shown on mouse click -- :focus-visible,
+   not :focus) for every interactive element in the palette. */
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+.info-icon:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .header {
@@ -231,18 +271,6 @@ h2 {
 
 .tab-panel.active {
   display: block;
-}
-
-fieldset {
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  margin-bottom: 8px;
-  padding: 6px 8px;
-}
-
-legend {
-  font-weight: bold;
-  padding: 0 4px;
 }
 
 details.section {
@@ -395,6 +423,15 @@ input::placeholder {
   background: var(--btn-secondary-hover);
 }
 
+/* Flags the two irreversible Theme-tab actions -- removing an imported theme
+   and wiping the whole imported-theme cache -- the same way the fleet's
+   LiveUtilities reference styles its destructive theme buttons. */
+#theme-remove:not(:disabled),
+button[data-action="factory_reset"][data-tab="theme"] {
+  color: var(--text-danger);
+  border-color: var(--text-danger);
+}
+
 .edit-active-row {
   align-items: center;
 }
@@ -448,7 +485,7 @@ input::placeholder {
   border: none;
   border-radius: 4px;
   background: var(--btn-primary);
-  color: #fff;
+  color: var(--btn-primary-text, #fff);
   cursor: pointer;
 }
 
@@ -556,7 +593,7 @@ input::placeholder {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay-bg, rgba(0, 0, 0, 0.5));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -624,7 +661,7 @@ input::placeholder {
 
 .modal-btn-confirm {
   background: var(--btn-primary);
-  color: #fff;
+  color: var(--btn-primary-text, #fff);
   border: none;
 }
 
@@ -634,6 +671,7 @@ input::placeholder {
 
 .modal-btn-confirm.danger {
   background: var(--status-error-text);
+  color: var(--btn-danger-text, #fff);
 }
 
 .modal-btn-confirm.danger:hover {

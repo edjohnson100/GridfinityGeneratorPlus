@@ -49,3 +49,8 @@ def delete_imported_theme(theme_id: str):
     if theme_id in themes:
         del themes[theme_id]
         configUtils.dumpJsonConfig(IMPORTED_THEMES_PATH, themes)
+
+
+def clear_imported_themes():
+    """Wipes every imported theme at once -- the Themes tab's Factory Reset."""
+    configUtils.dumpJsonConfig(IMPORTED_THEMES_PATH, {})

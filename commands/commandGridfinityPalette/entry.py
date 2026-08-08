@@ -43,7 +43,7 @@ CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'c
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
 
 PALETTE_TITLE = 'GridfinityGeneratorPlus'
-PALETTE_VERSION = 27
+PALETTE_VERSION = 28
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Local list of event handlers for the command button.
@@ -193,7 +193,7 @@ def _save_palette_geometry(palette: adsk.core.Palette):
         futil.log(f'{CMD_NAME} failed to save palette geometry:\n{traceback.format_exc()}')
 
 
-# The Theme tab's selection (Theme Designer Pro standard: CSS vars + data-theme
+# The Themes tab's selection (Theme Designer Pro standard: CSS vars + data-theme
 # attribute, applied entirely client-side in script.js). Python only persists
 # the active theme's name, same pattern as palette geometry above -- the actual
 # CSS variables for any imported (non-built-in) theme live in
@@ -203,7 +203,7 @@ THEME_CONFIG_KEY = 'theme'
 # fontFamily/fontSize mirror the --font-family/--font-size-base defaults in
 # style.css's :root block -- kept in sync manually since the CSS is the source of
 # truth for what "unmodified" looks like, this is just the fallback for a user who
-# has never touched the Theme tab's font controls.
+# has never touched the Themes tab's font controls.
 DEFAULT_THEME = {
     'name': 'System',
     'fontFamily': '-apple-system, "Segoe UI", Helvetica, Arial, sans-serif',
@@ -561,7 +561,7 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                     appConfig.delete_imported_theme(themeId)
 
             elif action == 'export_theme':
-                self._handle_export_theme(palette, data.get('id'), data.get('vars'), data.get('fontFamily'), data.get('fontSize'))
+                self._handle_export_theme(palette, data)
 
             elif action == 'update_common':
                 _save_common(form)
@@ -608,11 +608,20 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                 self._handle_delete_config(palette, tab, data.get('name'))
 
             elif action == 'factory_reset':
+                if tab == 'theme':
+                    appConfig.update({THEME_CONFIG_KEY: dict(DEFAULT_THEME)})
+                    appConfig.clear_imported_themes()
+                    _send(palette, 'set_state', {
+                        'tab': 'theme',
+                        'form': dict(DEFAULT_THEME),
+                        'importedThemes': {},
+                        'source': 'factory_reset',
+                    })
                 # Bin/Baseplate share the Common panel's grid settings, so resetting
                 # either side alone would leave the other half stale (e.g. resetting
                 # Bin back to defaults while Common is still on a loaded 92mm preset).
                 # Reset both halves together whenever either is involved.
-                if tab == 'common':
+                elif tab == 'common':
                     configUtils.dumpJsonConfig(COMMON_CONFIG_PATH, dict(DEFAULT_COMMON))
                     _send(palette, 'set_state', {
                         'tab': 'common',
@@ -646,22 +655,43 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
         except Exception:
             app.log(f'{CMD_NAME} HTMLEventHandler failed:\n{traceback.format_exc()}')
 
-    def _handle_export_theme(self, palette: adsk.core.Palette, themeId: str, themeVars: dict, fontFamily: str, fontSize):
-        if not themeId or not isinstance(themeVars, dict):
-            return
+    def _handle_export_theme(self, palette: adsk.core.Palette, data: dict):
+        fileType = data.get('file_type', 'json')
         try:
             dialog = ui.createFileDialog()
-            dialog.title = 'Export Theme'
-            dialog.filter = 'Theme files (*.theme.json)'
             dialog.initialDirectory = THEMES_FOLDER if os.path.isdir(THEMES_FOLDER) else RESOURCES_FOLDER
-            dialog.initialFilename = f'{themeId}.theme.json'
-            if dialog.showSave() != adsk.core.DialogResults.DialogOK:
-                return
-            filename = dialog.filename
-            with open(filename, 'w') as themeFile:
-                json.dump({'id': themeId, 'vars': themeVars, 'fontFamily': fontFamily, 'fontSize': fontSize}, themeFile, indent=2)
+
+            if fileType == 'css':
+                content = data.get('content')
+                if not content:
+                    return
+                dialog.title = 'Export Theme CSS Bundle'
+                dialog.filter = 'CSS files (*.css)'
+                dialog.initialFilename = data.get('default_name') or 'GGPlus_themes.css'
+                if dialog.showSave() != adsk.core.DialogResults.DialogOK:
+                    return
+                filename = dialog.filename
+                with open(filename, 'w') as cssFile:
+                    cssFile.write(content)
+            else:
+                themeId = data.get('id')
+                themeVars = data.get('vars')
+                if not themeId or not isinstance(themeVars, dict):
+                    return
+                dialog.title = 'Export Theme'
+                dialog.filter = 'Theme files (*.theme.json)'
+                dialog.initialFilename = f'{themeId}.theme.json'
+                if dialog.showSave() != adsk.core.DialogResults.DialogOK:
+                    return
+                filename = dialog.filename
+                with open(filename, 'w') as themeFile:
+                    json.dump({
+                        'id': themeId, 'vars': themeVars,
+                        'fontFamily': data.get('fontFamily'), 'fontSize': data.get('fontSize'),
+                    }, themeFile, indent=2)
+
             _send(palette, 'theme_export_result', {'path': filename})
-            _send(palette, 'notification', {'type': 'success', 'message': f'Exported theme to {os.path.basename(filename)}'})
+            _send(palette, 'notification', {'type': 'success', 'message': f'Exported to {os.path.basename(filename)}'})
         except Exception:
             app.log(f'{CMD_NAME} theme export failed:\n{traceback.format_exc()}')
             _send(palette, 'notification', {'type': 'error', 'message': 'Failed to export theme'})
