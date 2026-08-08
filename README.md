@@ -56,8 +56,6 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Fixed a notch in the bin base's bottom edge:** multi-cell bins previously showed a small visible notch at every interior grid seam along the outer bottom edge. The base is now built at its final, clearance-adjusted size from the very first sketch instead of being reshaped by a separate step afterward, so the outer edge comes out clean — you'll now see a small (expected, spec-accurate) gap between adjacent unit cells' feet instead.
 * **Dependent checkbox fixes:** unchecking **With lip** now also unchecks and disables **With lip notches** (re-enabling it when you check lip back on); unchecking **Add magnet cutouts** does the same for **Add magnet cutout tabs** — previously these could be left checked while their parent option was off.
 
-*For the full development history and the reasoning behind each design decision, see [`docs/Dev_Notes.md`](docs/Dev_Notes.md).*
-
 ## Installation
 
 > **Tip:** For a stable, versioned copy, download the latest packaged release from the **Releases** link in the right-hand sidebar of this repo's GitHub page instead of using the green **Code** button above — the Code button always pulls the current `main` branch, which may include in-progress changes. Or, simply click this link to the [Releases page](https://github.com/edjohnson100/GridfinityGeneratorPlus/releases)

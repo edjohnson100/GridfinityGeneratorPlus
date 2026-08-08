@@ -221,7 +221,7 @@ For questions about the underlying Gridfinity geometry generation that predates 
 
 ## Development History
 
-This fork's development is logged in detail in [Dev\_Notes.md](http://Dev_Notes.md), session by session, including the reasoning behind each design decision. A condensed summary of major milestones:
+A condensed summary of major milestones:
 
 - **Palette UI migration** — replaced the original's two separate command dialogs with a single persistent, dockable HTML palette.  
 - **Common settings panel, config manager, persistent preview workflow** — shared Bin/Baseplate settings, named saved presets, and an explicit Update Preview / Generate / Clear Preview workflow across the palette (replacing the original's in-dialog auto-update/on-demand preview toggle).  
