@@ -4,6 +4,7 @@ import json
 
 from ...lib import configUtils
 from ...lib import appConfig
+from ...lib import display_utils
 from ...lib import fusion360utils as futil
 from ... import config
 from ...lib.gridfinityUtils import const
@@ -177,6 +178,7 @@ def _load_palette_geometry() -> dict:
         'left': geometry.get('left'),
         'top': geometry.get('top'),
         'dockingState': geometry.get('dockingState', DEFAULT_PALETTE_DOCKING_STATE),
+        'displayLayout': geometry.get('displayLayout'),
     }
 
 
@@ -188,9 +190,17 @@ def _save_palette_geometry(palette: adsk.core.Palette):
             'left': palette.left,
             'top': palette.top,
             'dockingState': int(palette.dockingState),
+            # Recorded so a restore/diagnostic run can tell "same monitors as
+            # last time" from "the second screen is gone / rearranged".
+            'displayLayout': display_utils.layout_signature(),
         }})
     except Exception:
         futil.log(f'{CMD_NAME} failed to save palette geometry:\n{traceback.format_exc()}')
+
+
+def palette_display_report() -> str:
+    """Troubleshooting dump: monitors, Fusion's window, saved position, verdict."""
+    return display_utils.describe(_load_palette_geometry())
 
 
 # The Themes tab's selection (Theme Designer Pro standard: CSS vars + data-theme
@@ -382,8 +392,15 @@ def open_palette():
         geometry['width'], geometry['height'],
     )
     palette.dockingState = geometry['dockingState']
-    if geometry['left'] is not None and geometry['top'] is not None:
-        palette.setPosition(geometry['left'], geometry['top'])
+    # Docked palettes ignore left/top -- Fusion owns their placement. A saved
+    # floating position can be a valid point on a connected monitor and still
+    # be invisible: Fusion will not draw a floating palette that sits outside
+    # the display its own main window occupies (see lib/display_utils.py).
+    is_floating = geometry['dockingState'] == int(adsk.core.PaletteDockingStates.PaletteDockStateFloating)
+    if is_floating and geometry['left'] is not None and geometry['top'] is not None:
+        left, top, _ = display_utils.resolve_palette_position(
+            geometry['left'], geometry['top'], geometry['width'], geometry['height'])
+        palette.setPosition(left, top)
 
     on_html_event = HTMLEventHandler()
     palette.incomingFromHTML.add(on_html_event)

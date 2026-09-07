@@ -1,6 +1,6 @@
 # GridfinityGeneratorPlus
 
-Version: 1.4.1.0
+Version: 1.4.2.0
 
 By Ed Johnson (Making With An EdJ)
 
@@ -24,6 +24,10 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 6: Half-unit grid support & DXF export for laser cutting.** Add a half-unit-wide strip to any edge (Left/Right/Front/Back) of a bin or baseplate — where two checked edges meet at a corner, that cell automatically becomes quarter-size, no extra configuration needed. Baseplates can also generate a DXF-ready sketch for laser-cut fabrication.
 
 ---
+## ✨ What's New in v1.4.2
+
+* **Fixed the palette going invisible on multi-monitor setups.** If the palette was last parked on a second monitor and Fusion is later opened with its main window on a different monitor, Fusion refuses to draw a floating palette outside its own display — so the palette would silently fail to appear. The saved position is now checked against Fusion's actual display on open and remapped onto it when they don't match, at the same relative spot. A new standalone `PaletteDisplayCheck` script (Scripts and Add-Ins → Scripts) reports monitor layout, Fusion's window, and the saved position for troubleshooting.
+
 ## ✨ What's New in v1.4.1
 
 * **Font Family/Base Font Size now actually reach every control.** A gap in the fleet accessibility pass: buttons, dropdowns, and text fields in the palette were silently ignoring the Themes tab's font settings (only body text scaled) because browsers don't apply an ancestor's font to form controls by default. Fixed — every interactive control in the palette now tracks Font Family and Base Font Size correctly.

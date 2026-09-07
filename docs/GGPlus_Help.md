@@ -2,7 +2,7 @@
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
-Version: 1.4.1.0
+Version: 1.4.2.0
 
 By Ed Johnson
 
@@ -242,6 +242,7 @@ A condensed summary of major milestones:
 - **Palette header & tab bar fixes (v1.3.0)** — the palette gained a header bar (title, version, theme selector) at the top, matching the layout used across Ed's other Fusion add-ins; the theme selector moved here from the Theme tab. Also fixed inconsistent tab-button CSS that was drawing a boxed border around every tab instead of the intended flat underline style.
 - **Fleet UI standardization completed, plus an accessibility pass (v1.4.0)** — the "Theme" tab is renamed **Themes** (plural) and its content restructured to match the fleet standard; **Common Settings** is now collapsible like every other panel; the Themes tab gained CSS-bundle (`style.css`) import/export alongside the existing single-theme `.theme.json` import/export, and a Factory Reset button for clearing every imported theme at once. Separately, every button's foreground color now goes through a themed `--btn-primary-text`/`--btn-danger-text` variable (checked against WCAG AA contrast per built-in theme — Midnight and Sandstone needed dark text, not white, on their bright accent buttons), every interactive element shows a visible keyboard-only focus ring, and the confirmation-modal backdrop is themed instead of a fixed black tint.
 - **Font controls now reach every element (v1.4.1)** — Font Family/Base Font Size on the Themes tab previously only scaled body text; buttons, dropdowns, and text fields silently kept the browser's default UI font. Fixed fleet-wide with an explicit font inheritance rule for form controls.
+- **Multi-monitor palette visibility fix (v1.4.2)** — Fusion won't draw a floating palette outside the display its own main window occupies, so a palette last parked on a second monitor could go silently invisible when Fusion was later opened on a different one. The saved position is now checked against Fusion's actual display on open and remapped onto it at the same relative spot when they don't match. A new standalone `PaletteDisplayCheck` script reports monitor layout and the saved-position verdict for troubleshooting.
 
 ---
 
