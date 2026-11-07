@@ -44,7 +44,7 @@ CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'c
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
 
 PALETTE_TITLE = 'GridfinityGeneratorPlus'
-PALETTE_VERSION = 36
+PALETTE_VERSION = 41
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Local list of event handlers for the command button.
@@ -72,6 +72,10 @@ DEFAULT_BIN = {
     'compartments': [],
     'hasScoop': False,
     'scoopMaxRadius': const.BIN_SCOOP_MAX_RADIUS,
+    'scoopFront': True,
+    'scoopLeft': False,
+    'scoopBack': False,
+    'scoopRight': False,
     'hasTab': False,
     'tabLength': 1,
     'tabWidth': const.BIN_TAB_WIDTH,
@@ -438,12 +442,26 @@ def _ensure_hybrid_design_intent():
         return False, 'No active Fusion design.'
     if des.designIntent != adsk.fusion.DesignIntentTypes.HybridDesignIntentType:
         return False, (
-            'Generate requires Hybrid design intent (Document Settings → Design → Hybrid). '
-            'This is what lets each generated component remember its own settings, so you can '
-            'revisit or share your design later. Switch to Hybrid Design and click Generate again '
-            '— your current field values are unaffected.'
+            'GridfinityGeneratorPlus requires a Hybrid Design.\n\n'
+            'Preview and Generate build each bin or baseplate as its own component that remembers '
+            'its settings, which Part and Assembly designs do not support.\n\n'
+            'To switch: in the Browser, expand Document Settings, then hover over the current '
+            'Design Type and click the pencil icon to open the Convert Design dialog. Choose '
+            'Hybrid Design and click Convert. Then try again. Your field values in the palette '
+            'are unaffected.'
         )
     return True, ''
+
+
+def _require_hybrid_design_intent():
+    # A native modal message box rather than a palette toast: toasts can scroll out of
+    # view and auto-hide before the (long) text can be read. Returns True if OK to proceed.
+    hybridOk, hybridMessage = _ensure_hybrid_design_intent()
+    if not hybridOk:
+        ui.messageBox(hybridMessage, 'Hybrid Design required',
+                      adsk.core.MessageBoxButtonTypes.OKButtonType,
+                      adsk.core.MessageBoxIconTypes.WarningIconType)
+    return hybridOk
 
 
 COMMON_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'common.json')
@@ -813,10 +831,13 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
             _send(palette, 'notification', {'type': 'error', 'message': message})
             return
 
+        if not _require_hybrid_design_intent():
+            return
+
         def work():
             try:
                 previewState.clear_preview()
-                occurrence = generation.create_and_build(tab, form, is_preview=True)
+                occurrence =generation.create_and_build(tab, form, is_preview=True)
                 previewState.track_preview(tab, occurrence)
                 _send(palette, 'preview_status', {'tab': tab, 'active': True, 'adopted': False})
             except UnsupportedDesignTypeException:
@@ -845,9 +866,7 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
             _send(palette, 'notification', {'type': 'error', 'message': message})
             return
 
-        hybridOk, hybridMessage = _ensure_hybrid_design_intent()
-        if not hybridOk:
-            _send(palette, 'notification', {'type': 'error', 'message': hybridMessage})
+        if not _require_hybrid_design_intent():
             return
 
         def work():

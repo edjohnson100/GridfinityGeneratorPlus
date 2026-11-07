@@ -5,6 +5,8 @@ from . import const
 class BinBodyCutoutGeneratorInput():
     def __init__(self):
         self.hasScoop = False
+        # Subset of {'front', 'left', 'back', 'right'}; front only matches legacy behavior.
+        self.scoopSides = {'front'}
         self.scoopMaxRadius = const.BIN_SCOOP_MAX_RADIUS
         self.tabOverhangAngle = const.BIN_TAB_OVERHANG_ANGLE
         self.tabPosition = 0
@@ -52,6 +54,14 @@ class BinBodyCutoutGeneratorInput():
     @hasScoop.setter
     def hasScoop(self, value: bool):
         self._hasScoop = value
+
+    @property
+    def scoopSides(self) -> set:
+        return self._scoopSides
+
+    @scoopSides.setter
+    def scoopSides(self, value: set):
+        self._scoopSides = set(value)
 
     @property
     def scoopMaxRadius(self) -> float:

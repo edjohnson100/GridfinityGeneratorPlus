@@ -87,6 +87,7 @@ const state = {
             generateBody: true, binType: 'Hollow', wallThickness: 0.12, withLip: true, withLipNotches: false,
             compartmentsGridType: 'Uniform', compartmentsGridWidth: 1, compartmentsGridLength: 1, compartments: [],
             hasScoop: false, scoopMaxRadius: 2.5,
+            scoopFront: true, scoopLeft: false, scoopBack: false, scoopRight: false,
             hasTab: false, tabLength: 1, tabWidth: 1.3, tabPosition: 0, tabAngleDeg: 45,
             generateBase: true, hasScrewHoles: false, screwDiameter: 0.3,
             hasMagnetCutouts: false, hasMagnetCutoutsTabs: false,
@@ -605,7 +606,9 @@ function updateBinConditionalVisibility() {
     if (!hasMagnetCutouts) hasMagnetCutoutsTabsInput.checked = false;
     document.getElementById('bin-has-magnet-cutouts-tabs-row').classList.toggle('disabled-row', !hasMagnetCutouts);
 
-    setFieldEnabled('bin.scoopMaxRadius', document.getElementById('bin.hasScoop').checked);
+    const hasScoopChecked = document.getElementById('bin.hasScoop').checked;
+    setFieldEnabled('bin.scoopMaxRadius', hasScoopChecked);
+    ['scoopFront', 'scoopLeft', 'scoopBack', 'scoopRight'].forEach(f => setFieldEnabled('bin.' + f, hasScoopChecked));
     const hasTab = document.getElementById('bin.hasTab').checked;
     ['tabLength', 'tabWidth', 'tabPosition', 'tabAngleDeg'].forEach(f => setFieldEnabled('bin.' + f, hasTab));
     setFieldEnabled('bin.screwDiameter', document.getElementById('bin.hasScrewHoles').checked);

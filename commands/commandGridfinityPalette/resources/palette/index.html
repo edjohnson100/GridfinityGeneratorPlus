@@ -9,7 +9,7 @@
     <div class="header">
       <div>
         <h2>GridfinityGeneratorPlus</h2>
-        <div id="versionTag" class="sub-header">v1.5.0.0</div>
+        <div id="versionTag" class="sub-header">v1.6.0.0</div>
       </div>
       <select id="theme.name" style="width: auto; height: 28px; font-size: calc(var(--font-size-base) - 1px); padding: 2px 5px;">
         <option value="System">System (Default)</option>
@@ -146,8 +146,16 @@
       <details class="section">
         <summary>Scoop</summary>
         <label><input type="checkbox" id="bin.hasScoop"> Add scoop</label>
-        <label>Scoop max radius (mm) <input type="number" step="0.1" id="bin.scoopMaxRadius"></label>
+        <label><span class="label-text">Scoop max radius (mm) <span class="info-icon" tabindex="0" role="img" aria-label="Info">&#9432;<span class="tooltip">The scoop's radius is this value, limited ("max") by the interior depth of the bin, which is the bin height minus 6 mm (5 mm base + 1 mm floor); a shorter bin gets a smaller scoop. Entering that depth or larger will create a full scoop to the top edge. In a Custom compartment grid, each compartment's own depth also limits it. Choose which sides get the scoop with the Front/Left/Back/Right checkboxes below.</span></span></span> <input type="number" step="0.1" id="bin.scoopMaxRadius"></label>
         <span class="field-error" data-error-for="scoopMaxRadius"></span>
+        <div class="field-hint">Scoop sides <span class="info-icon" tabindex="0" role="img" aria-label="Info">&#9432;<span class="tooltip">Which interior walls get a scoop. Front is the default. Checking several sides blends them at the corners; a very large radius on opposite sides may overlap.</span></span></div>
+        <div class="half-edge-grid">
+          <label><input type="checkbox" id="bin.scoopFront"> Front</label>
+          <label><input type="checkbox" id="bin.scoopLeft"> Left</label>
+          <label><input type="checkbox" id="bin.scoopBack"> Back</label>
+          <label><input type="checkbox" id="bin.scoopRight"> Right</label>
+        </div>
+        <span class="field-error" data-error-for="scoopSides"></span>
       </details>
 
       <details class="section">
@@ -155,7 +163,7 @@
         <label><input type="checkbox" id="bin.hasTab"> Add label tab</label>
         <label><span class="label-text">Tab length (units) <span class="info-icon" tabindex="0" role="img" aria-label="Info">&#9432;<span class="tooltip">Length of the label tab in grid cells (units), so it lines up with the bin's grid.</span></span></span> <input type="number" step="1" id="bin.tabLength"></label>
         <label>Tab width (mm) <input type="number" step="0.1" id="bin.tabWidth"></label>
-        <label><span class="label-text">Tab position (units) <span class="info-icon" tabindex="0" role="img" aria-label="Info">&#9432;<span class="tooltip">Where along the bin the label tab starts, in grid cells (units).</span></span></span> <input type="number" step="1" id="bin.tabPosition"></label>
+        <label><span class="label-text">Tab position (units) <span class="info-icon" tabindex="0" role="img" aria-label="Info">&#9432;<span class="tooltip">The label tab starts in the back-left corner and is shifted right by this many grid units (decimals allowed, e.g. 0.75). If the value is too large, the tab stops at the back-right of the bin.</span></span></span> <input type="number" step="1" id="bin.tabPosition"></label>
         <label>Tab overhang angle (deg) <input type="number" step="1" id="bin.tabAngleDeg"></label>
         <span class="field-error" data-error-for="tabLength"></span>
         <span class="field-error" data-error-for="tabWidth"></span>
@@ -429,7 +437,7 @@
       </details>
     </div>
 
-    <div class="field-hint version-footer">GridfinityGeneratorPlus<br>v1.5.0.0, November 2026</div>
+    <div class="field-hint version-footer">GridfinityGeneratorPlus<br>v1.6.0.0, November 2026</div>
   </div>
 
   <div id="modal-overlay" class="modal-overlay hidden">

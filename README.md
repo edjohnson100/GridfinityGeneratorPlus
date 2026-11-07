@@ -1,6 +1,6 @@
 # GridfinityGeneratorPlus
 
-Version: 1.5.0.0
+Version: 1.6.0.0
 
 By Ed Johnson (Making With An EdJ)
 
@@ -22,6 +22,13 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 4: Stackable baseplates.** A fourth baseplate type, made symmetric top-to-bottom so it can be printed and physically stacked with no overhang, with configurable interface layers between plates.
 * **Feature 5: Themes tab.** Customize the palette's appearance — built-in themes, automatic OS dark-mode following, and import/export of your own custom themes as either a single `.theme.json` file or a multi-theme `style.css` bundle.
 * **Feature 6: Half-unit grid support & DXF export for laser cutting.** Add a half-unit-wide strip to any edge (Left/Right/Front/Back) of a bin or baseplate — where two checked edges meet at a corner, that cell automatically becomes quarter-size, no extra configuration needed. Baseplates can also generate a DXF-ready sketch for laser-cut fabrication.
+
+---
+## ✨ What's New in v1.6
+
+* **Scoop on any side.** Front / Left / Back / Right checkboxes in the Scoop section (enabled when **Add scoop** is checked); any combination works, and selected sides blend at the corners. Front is the default, so existing configurations are unchanged.
+* **Hybrid Design is required for Preview and Generate**, with a clear dialog explaining how to convert the design.
+* **Better tooltips and small fixes** for Scoop max radius and Tab position, plus a fix for an error logged when the Tab position field was cleared.
 
 ---
 ## ✨ What's New in v1.5
@@ -110,7 +117,7 @@ In the **DESIGN** workspace, find the **SOLID** toolbar panel's **CREATE** dropd
 ### Edit Active Component
 Activate a previously generated Gridfinity part in the Fusion browser by hovering over the component name and clicking the radio button that appears to the righ of the name, then click **Edit Active Component** at the top of the palette — it reloads the exact settings used to build that part.
 
-* **Tip:** this requires the design to be in **Hybrid** design mode (Document Settings → Design → Hybrid). If you click **Generate** in a Part or Assembly design, the palette will prompt you to switch modes — your entered values aren't lost, so just switch and click Generate again.
+* **Tip:** this requires the design to be in **Hybrid** design mode (Document Settings → Design → Hybrid). If you click **Update Preview** or **Generate** in a Part or Assembly design, a dialog explains how to convert the design — your entered values aren't lost, so just convert and try again.
 
 For the complete usage guide, including every tab, field, and workflow in detail, see [GGPlus_Help.md](docs/GGPlus_Help.md).
 

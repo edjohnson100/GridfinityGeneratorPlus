@@ -7,7 +7,9 @@ def validate_bin(form: dict) -> dict:
     fieldErrors = {}
 
     def get(key, default=None):
-        return form.get(key, default)
+        # An emptied/mid-typing number field arrives as None; treat as default.
+        value = form.get(key, default)
+        return default if value is None else value
 
     baseWidthUnit = float(get('baseWidthUnit', 0))
     baseLengthUnit = float(get('baseLengthUnit', 0))
@@ -69,6 +71,8 @@ def validate_bin(form: dict) -> dict:
     if generateBody and binType == 'Hollow':
         if hasScoop and not scoopMaxRadius > 0:
             fieldErrors['scoopMaxRadius'] = 'Must be greater than 0'
+        if hasScoop and not any(get(k, d) for k, d in (('scoopFront', True), ('scoopLeft', False), ('scoopBack', False), ('scoopRight', False))):
+            fieldErrors['scoopSides'] = 'Select at least one scoop side'
         if hasTab:
             if not tabLength > 0:
                 fieldErrors['tabLength'] = 'Must be greater than 0'
@@ -123,7 +127,9 @@ def validate_baseplate(form: dict) -> dict:
     fieldErrors = {}
 
     def get(key, default=None):
-        return form.get(key, default)
+        # An emptied/mid-typing number field arrives as None; treat as default.
+        value = form.get(key, default)
+        return default if value is None else value
 
     baseWidthUnit = float(get('baseWidthUnit', 0))
     baseLengthUnit = float(get('baseLengthUnit', 0))
@@ -204,7 +210,9 @@ def validate_optimizer(form: dict) -> dict:
     fieldErrors = {}
 
     def get(key, default=None):
-        return form.get(key, default)
+        # An emptied/mid-typing number field arrives as None; treat as default.
+        value = form.get(key, default)
+        return default if value is None else value
 
     minSize = float(get('minSize', 0))
     maxSize = float(get('maxSize', 0))

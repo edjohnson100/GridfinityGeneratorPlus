@@ -21,6 +21,21 @@ def getInnerCutoutScoopFace(
     oppositeFace = max(innerCutoutYNormalFaces, key=lambda x: x.boundingBox.minPoint.y)
     return (scoopFace, oppositeFace)
 
+def getInnerCutoutScoopEdges(
+    innerCutout: adsk.fusion.BRepBody,
+    scoopSides: set,
+    ) -> list[adsk.fusion.BRepEdge]:
+    # Must be called on the un-filleted box: each side is a planar wall face.
+    yFaces = [face for face in innerCutout.faces if faceUtils.isYNormal(face)]
+    xFaces = [face for face in innerCutout.faces if faceUtils.isXNormal(face)]
+    sideFaces = {
+        'front': min(yFaces, key=lambda x: x.boundingBox.minPoint.y),
+        'back': max(yFaces, key=lambda x: x.boundingBox.minPoint.y),
+        'left': min(xFaces, key=lambda x: x.boundingBox.minPoint.x),
+        'right': max(xFaces, key=lambda x: x.boundingBox.minPoint.x),
+    }
+    return [faceUtils.getBottomHorizontalEdge(sideFaces[side].edges) for side in ('front', 'left', 'back', 'right') if side in scoopSides]
+
 def createGridfinityBinBodyCutout(
     input: BinBodyCutoutGeneratorInput,
     targetComponent: adsk.fusion.Component,
@@ -54,35 +69,41 @@ def createGridfinityBinBodyCutout(
     innerCutoutBody.name = 'Inner cutout'
 
     # scoop
-    if input.hasScoop:
-        [innerCutoutScoopFace, innerCutoputScoopOppositeFace] = getInnerCutoutScoopFace(innerCutoutBody)
-        scoopEdge = faceUtils.getBottomHorizontalEdge(innerCutoutScoopFace.edges)
+    scoopSides = input.scoopSides if input.hasScoop else set()
+    if scoopSides:
+        # All selected sides are filleted in a single feature so corners blend.
+        scoopEdges = getInnerCutoutScoopEdges(innerCutoutBody, scoopSides)
         scoopMaxRadius = min(input.scoopMaxRadius, input.height) if min(input.scoopMaxRadius, input.height) >= input.filletRadius else input.filletRadius
         filletUtils.createFillet(
-            [scoopEdge],
+            scoopEdges,
             scoopMaxRadius,
             False,
             targetComponent
         )
     # fillet inner cutout
-    [innerCutoutScoopFace, innerCutoputScoopOppositeFace] = getInnerCutoutScoopFace(innerCutoutBody)
+    # A full-depth scoop (radius >= depth) consumes the wall face entirely, so
+    # don't assume any particular planar wall (or vertical edge) still exists.
     innerCutoutVerticalFaces = faceUtils.getVerticalEdges(innerCutoutBody.faces)
-    filletUtils.createFillet(
-        innerCutoutVerticalFaces,
-        input.filletRadius,
-        True,
-        targetComponent
-    )
-    if input.hasBottomFillet:
-        # recalculate faces after fillet
-        [innerCutoutScoopFace, innerCutoputScoopOppositeFace] = getInnerCutoutScoopFace(innerCutoutBody)
-        scoopOppositeEdge = faceUtils.getBottomHorizontalEdge(innerCutoputScoopOppositeFace.edges)
-
+    if innerCutoutVerticalFaces:
         filletUtils.createFillet(
-            [scoopOppositeEdge],
+            innerCutoutVerticalFaces,
             input.filletRadius,
             True,
             targetComponent
         )
+    # The back bottom edge is already rounded when the back is scooped.
+    if input.hasBottomFillet and 'back' not in scoopSides:
+        # recalculate faces after fillet
+        backFaces = [face for face in innerCutoutBody.faces if faceUtils.isYNormal(face)]
+        if backFaces:
+            innerCutoputScoopOppositeFace = max(backFaces, key=lambda x: x.boundingBox.minPoint.y)
+            scoopOppositeEdge = faceUtils.getBottomHorizontalEdge(innerCutoputScoopOppositeFace.edges)
+
+            filletUtils.createFillet(
+                [scoopOppositeEdge],
+                input.filletRadius,
+                True,
+                targetComponent
+            )
 
     return innerCutoutBody

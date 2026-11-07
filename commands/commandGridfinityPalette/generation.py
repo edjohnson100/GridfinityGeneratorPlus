@@ -211,6 +211,14 @@ def build_bin(inputState: BinInputState, component: adsk.fusion.Component, name:
     binBodyInput.wallThickness = inputState.wallThickness
     binBodyInput.hasScoop = inputState.hasScoop and isHollow
     binBodyInput.scoopMaxRadius = inputState.scoopMaxRadius
+    binBodyInput.scoopSides = {
+        side for side, checked in (
+            ('front', inputState.scoopFront),
+            ('left', inputState.scoopLeft),
+            ('back', inputState.scoopBack),
+            ('right', inputState.scoopRight),
+        ) if checked
+    }
     binBodyInput.hasTab = inputState.hasTab and isHollow
     binBodyInput.tabLength = inputState.tabLength
     binBodyInput.tabWidth = inputState.tabWidth
@@ -270,7 +278,7 @@ def build_bin(inputState: BinInputState, component: adsk.fusion.Component, name:
             compartmentTabInput = BinBodyTabGeneratorInput()
             tabOriginPoint = adsk.core.Point3D.create(
                 binBodyInput.wallThickness + max(0, min(binBodyInput.tabPosition, binBodyInput.binWidth - binBodyInput.tabLength)) * binBodyInput.baseWidth,
-                const.BIN_LIP_WALL_THICKNESS if binBodyInput.hasLip and binBodyInput.hasScoop else binBodyInput.wallThickness + binBodyInput.binLength * binBodyInput.baseLength - binBodyInput.wallThickness - binBodyInput.xyClearance * 2,
+                const.BIN_LIP_WALL_THICKNESS if binBodyInput.hasLip and binBodyInput.hasFrontScoop else binBodyInput.wallThickness + binBodyInput.binLength * binBodyInput.baseLength - binBodyInput.wallThickness - binBodyInput.xyClearance * 2,
                 (binBodyInput.binHeight - 1) * binBodyInput.heightUnit + max(0, binBodyInput.heightUnit - const.BIN_BASE_HEIGHT),
             )
             compartmentTabInput.origin = tabOriginPoint

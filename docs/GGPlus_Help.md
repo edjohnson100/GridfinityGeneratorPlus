@@ -2,7 +2,7 @@
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
-Version: 1.5.0.0
+Version: 1.6.0.0
 
 By Ed Johnson
 
@@ -14,7 +14,7 @@ August, 2026
 
 The original GridfinityGenerator add-in is a great parametric bin/baseplate generator, but it works through two separate command dialogs that don't share settings, offer no preview before committing, and forget everything about how a part was built the moment you click OK — so revisiting a design months later, or handing the file to someone else, means starting from scratch. GridfinityGeneratorPlus keeps the original's proven geometry engine and rebuilds the interface and workflow around it.
 
-**GridfinityGeneratorPlu**s is a Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.
+**GridfinityGeneratorPlus** is a Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.
 
 ---
 
@@ -68,7 +68,7 @@ If you’ve used the original GridfinityGenerator, here’s what’s different:E
 
 ### Bin
 
-Generates a parametric Gridfinity bin: overall size (in grid units), wall type (Hollow/Shelled/Solid), stacking lip, uniform or custom compartment grid, scoop, label tab, base screw holes, and magnet cutouts. This is a direct continuation of the original’s bin generator — the underlying geometry logic is Lev Mishin’s.
+Generates a parametric Gridfinity bin: overall size (in grid units), wall type (Hollow/Shelled/Solid), stacking lip, uniform or custom compartment grid, scoop (on any combination of the Front, Left, Back, and Right sides — Front by default), label tab, base screw holes, and magnet cutouts. This is a direct continuation of the original’s bin generator — the underlying geometry logic is Lev Mishin’s.
 
 **Half-unit edges** *(new in this fork)*: check **Left**, **Right**, **Front**, and/or **Back** to add a half-unit-wide strip to that edge of the bin. Where two adjacent checked edges meet at a corner, that cell becomes quarter-size automatically — no extra configuration needed. Width/length can be **0** if the corresponding pair of half-edges (Left+Right, or Front+Back) supplies the whole dimension on that axis, letting you build a bin entirely out of half- and quarter-size cells. Magnet/screw cutouts and lip notches are placed per-module, but magnet/screw cutouts only ever apply to true full-size cells.
 
@@ -163,7 +163,7 @@ Every part generated with this add-in remembers its own settings — the exact p
 
 To use it: hover over the component you want to change in the Fusion browser tree and click the radio button that appears to its right to activate it, then click **Edit Active Component** at the top of the palette. The palette reloads with the exact settings that built that part, on whichever tab it belongs to. From there, adjust anything you like and click **Update Preview** to see the change, or **Generate** to make it permanent again.
 
-**Note:** this requires the design to be in **Hybrid** design mode (Document Settings → Design → Hybrid) — this is what allows each generated part to own and carry its own settings. **Generate** will prompt you to switch modes if the active document isn’t set to Hybrid; your entered field values are never lost when this happens, so you can simply switch modes and click Generate again.
+**Note:** this requires the design to be in **Hybrid** design mode (Document Settings → Design → Hybrid) — this is what allows each generated part to own and carry its own settings. **Update Preview** and **Generate** show a dialog if the active document isn’t set to Hybrid, with steps to convert it (Browser → Document Settings → hover the Design Type → pencil icon → Hybrid Design → Convert); your entered field values are never lost, so you can simply convert and try again.
 
 ---
 
@@ -235,7 +235,7 @@ A condensed summary of major milestones:
 - **Grid Optimizer tab** — recommends an optimal custom grid pitch from user-entered drawer/cabinet dimensions.  
 - **Stackable baseplate type** — a fourth baseplate type, symmetric top-to-bottom for physical stacking, with configurable interface layers.  
 - **Theme tab** — customizable palette appearance with built-in and importable custom themes, plus font family/size controls, theme export, and removing imported themes.  
-- **Generate requires Hybrid design intent** — guarantees every generated part can carry its own settings for later editing or sharing.  
+- **Preview and Generate require Hybrid design intent** — guarantees every generated part can carry its own settings for later editing or sharing.  
 - **Grouped Undo & Undo/Redo-aware preview tracking** — Update Preview/Generate each collapse to a single Undo step, and the Clear Preview button stays correctly in sync as you step through Fusion's Undo/Redo.  
 - **Redesigned Configurations manager & themed dialogs** — Load/Delete/Save As now open focused dialogs instead of sharing an inline dropdown, and every popup in the palette (including a warning before an Update Preview/Generate on one tab would discard an unfinalized preview on the other) uses a themed dialog matching the palette instead of a native browser popup.
 - **Bin base bottom-edge notch fix** — multi-cell bins no longer show a small notch at interior grid seams along the outer bottom edge; the base is now built at its final size from the first sketch instead of being reshaped by a separate step afterward.

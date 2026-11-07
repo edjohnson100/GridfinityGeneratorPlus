@@ -87,12 +87,12 @@ def createGridfinityBinBody(
             lipBottomChamferSize = max(const.BIN_BODY_CUTOUT_BOTTOM_FILLET_RADIUS, input.binCornerFilletRadius - input.wallThickness)
             lipBottomChamferExtrude = extrudeUtils.createBoxAtPoint(
                 actualBodyWidth - input.wallThickness * 2,
-                (actualBodyLength - input.wallThickness - const.BIN_LIP_WALL_THICKNESS + input.xyClearance) if input.hasScoop else (actualBodyLength - input.wallThickness * 2),
+                (actualBodyLength - input.wallThickness - const.BIN_LIP_WALL_THICKNESS + input.xyClearance) if input.hasFrontScoop else (actualBodyLength - input.wallThickness * 2),
                 lipBottomChamferSize,
                 targetComponent,
                 adsk.core.Point3D.create(
                     input.wallThickness,
-                    (const.BIN_LIP_WALL_THICKNESS - input.xyClearance) if input.hasScoop else input.wallThickness,
+                    (const.BIN_LIP_WALL_THICKNESS - input.xyClearance) if input.hasFrontScoop else input.wallThickness,
                     lipOriginPoint.z,
                 )
             )
@@ -106,7 +106,7 @@ def createGridfinityBinBody(
             lipBottomChamferExtrudeTopFace = faceUtils.getTopFace(lipBottomChamferExtrude.bodies.item(0))
             scoopSideEdge = min([edge for edge in lipBottomChamferExtrudeTopFace.edges if geometryUtils.isCollinearToX(edge)], key=lambda x: x.boundingBox.minPoint.y)
 
-            edgesToChamfer = list(scoopSideEdge.tangentiallyConnectedEdges)[3:] if input.hasScoop else scoopSideEdge.tangentiallyConnectedEdges
+            edgesToChamfer = list(scoopSideEdge.tangentiallyConnectedEdges)[3:] if input.hasFrontScoop else scoopSideEdge.tangentiallyConnectedEdges
             chamferFeatures: adsk.fusion.ChamferFeatures = features.chamferFeatures
             bottomLipChamferInput = chamferFeatures.createInput2()
             bottomLipChamferEdges = commonUtils.objectCollectionFromList(edgesToChamfer)
@@ -122,7 +122,7 @@ def createGridfinityBinBody(
     if not input.isSolid:
         compartmentsMinX = input.wallThickness
         compartmentsMaxX = actualBodyWidth - input.wallThickness
-        compartmentsMinY = (const.BIN_LIP_WALL_THICKNESS - input.xyClearance) if input.hasLip and input.hasScoop else input.wallThickness
+        compartmentsMinY = (const.BIN_LIP_WALL_THICKNESS - input.xyClearance) if input.hasLip and input.hasFrontScoop else input.wallThickness
         compartmentsMaxY = actualBodyLength - input.wallThickness
 
         totalCompartmentsWidth = compartmentsMaxX - compartmentsMinX
@@ -167,6 +167,7 @@ def createGridfinityBinBody(
                 input.hasTab,
                 compartmentTabInput,
                 targetComponent,
+                input.scoopSides,
             )
             bodiesToSubtract = bodiesToSubtract + compartmentCuts
             bodiesToMerge = bodiesToMerge + compartmentMerges
@@ -217,6 +218,7 @@ def createCompartmentCutout(
         scoopMaxRadius: float,
         hasBottomFillet: bool,
         targetComponent: adsk.fusion.Component,
+        scoopSides: set = None,
     ) -> adsk.fusion.BRepBody:
 
     innerCutoutFilletRadius = max(const.BIN_BODY_CUTOUT_BOTTOM_FILLET_RADIUS, cornerFilletRadius)
@@ -226,6 +228,7 @@ def createCompartmentCutout(
     innerCutoutInput.length = length
     innerCutoutInput.height = depth
     innerCutoutInput.hasScoop = hasScoop
+    innerCutoutInput.scoopSides = scoopSides if scoopSides is not None else {'front'}
     innerCutoutInput.scoopMaxRadius = scoopMaxRadius
     innerCutoutInput.filletRadius = innerCutoutFilletRadius
     innerCutoutInput.hasBottomFillet = hasBottomFillet
@@ -244,6 +247,7 @@ def createCompartment(
         hasTab: bool,
         tabInput: BinBodyTabGeneratorInput,
         targetComponent: adsk.fusion.Component,
+        scoopSides: set = None,
     ) -> tuple[list[adsk.fusion.BRepBody], list[adsk.fusion.BRepBody]]:
 
     bodiesToMerge: list[adsk.fusion.BRepBody] = []
@@ -260,6 +264,7 @@ def createCompartment(
         scoopMaxRadius,
         True,
         targetComponent,
+        scoopSides,
     )
     bodiesToSubtract.append(innerCutoutBody)
 

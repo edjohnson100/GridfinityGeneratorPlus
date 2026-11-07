@@ -38,6 +38,10 @@ class BinInputState:
 
     hasScoop: bool
     scoopMaxRadius: float
+    scoopFront: bool
+    scoopLeft: bool
+    scoopBack: bool
+    scoopRight: bool
 
     hasTab: bool
     tabLength: float
@@ -89,6 +93,10 @@ class BinInputState:
             compartments=compartments,
             hasScoop=bool(form['hasScoop']),
             scoopMaxRadius=float(form['scoopMaxRadius']),
+            scoopFront=bool(form.get('scoopFront', True)),
+            scoopLeft=bool(form.get('scoopLeft', False)),
+            scoopBack=bool(form.get('scoopBack', False)),
+            scoopRight=bool(form.get('scoopRight', False)),
             hasTab=bool(form['hasTab']),
             tabLength=float(form['tabLength']),
             tabWidth=float(form['tabWidth']),

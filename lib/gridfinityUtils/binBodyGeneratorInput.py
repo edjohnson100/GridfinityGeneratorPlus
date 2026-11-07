@@ -58,6 +58,7 @@ class BinBodyGeneratorInput():
         self.hasLip = False
         self.hasLipNotches = False
         self.hasScoop = False
+        self.scoopSides = {'front'}
         self.scoopMaxRadius = const.BIN_SCOOP_MAX_RADIUS
         self.tabOverhangAngle = const.BIN_TAB_OVERHANG_ANGLE
         self.tabPosition = 0
@@ -207,6 +208,19 @@ class BinBodyGeneratorInput():
     @hasScoop.setter
     def hasScoop(self, value: bool):
         self._hasScoop = value
+
+    @property
+    def scoopSides(self) -> set:
+        return self._scoopSides
+
+    @scoopSides.setter
+    def scoopSides(self, value: set):
+        self._scoopSides = set(value)
+
+    @property
+    def hasFrontScoop(self) -> bool:
+        # The lip/wall-thinning logic is front-specific.
+        return self._hasScoop and 'front' in self._scoopSides
 
     @property
     def scoopMaxRadius(self) -> float:
