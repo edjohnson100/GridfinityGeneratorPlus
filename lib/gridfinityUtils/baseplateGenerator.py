@@ -330,7 +330,7 @@ def createGridfinityBaseplate(input: BaseplateGeneratorInput, targetComponent: a
                 ),
                 targetComponent
             )
-            paddingTopBody.name = "Padding top"
+            paddingTopBody.name = "Padding back"
             mergeTools.append(paddingTopBody)
         if input.paddingRight > 0:
             paddingRightBody = shapeUtils.simpleBox(
@@ -362,7 +362,7 @@ def createGridfinityBaseplate(input: BaseplateGeneratorInput, targetComponent: a
                 ),
                 targetComponent
             )
-            paddingBottomBody.name = "Padding bottom"
+            paddingBottomBody.name = "Padding front"
             mergeTools.append(paddingBottomBody)
         if len(mergeTools) > 0:
             paddingCombineFeature = combineUtils.joinBodies(

@@ -328,6 +328,17 @@ label {
   margin: 4px 0;
 }
 
+/* Checkbox rows: box first, text immediately beside it, left-aligned.
+   Class is added by script.js (avoids relying on :has() in the embedded webview). */
+label.checkbox-label {
+  justify-content: flex-start;
+}
+
+label.checkbox-label input[type="checkbox"] {
+  flex: none;
+  margin: 0;
+}
+
 label input[type="number"],
 label input[type="text"] {
   width: 90px;
@@ -687,4 +698,68 @@ button[data-action="factory_reset"][data-tab="theme"] {
 
 .modal-btn-confirm.danger:hover {
   filter: brightness(1.1);
+}
+
+/* Collapsed-section summaries, expand/collapse links, half-edge heading */
+.summary-hint {
+  margin-left: 8px;
+  font-weight: normal;
+  font-size: calc(var(--font-size-base) - 1px);
+  color: var(--text-sub);
+}
+
+details[open] > summary .summary-hint {
+  display: none;
+}
+
+.section-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 4px;
+  color: var(--text-sub);
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-sub);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: calc(var(--font-size-base) - 1px);
+  width: auto;
+}
+
+.half-edge-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 2px;
+}
+
+/* Tooltip icons inside field labels */
+.label-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.label-text .info-icon,
+label .info-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.info-icon .tooltip {
+  text-align: left;
+  font-style: normal;
+  width: 260px;
+  max-width: calc(100vw - 32px);
+}
+
+.info-icon .tooltip.tooltip-below {
+  bottom: auto;
+  top: calc(100% + 8px);
 }

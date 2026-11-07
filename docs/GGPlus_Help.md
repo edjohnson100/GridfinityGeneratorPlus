@@ -2,7 +2,7 @@
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
-Version: 1.4.2.0
+Version: 1.5.0.0
 
 By Ed Johnson
 
@@ -54,7 +54,9 @@ If you’ve used the original GridfinityGenerator, here’s what’s different:E
 
 **Set your Common settings.** At the top of the palette, above the tabs, set your base grid unit (default 42mm), XY clearance, and magnet cutout size once — these are shared by both the Bin and Baseplate tabs so they always stay compatible with each other.
 
-**Pick a tab and set your parameters.** Switch between **Bin**, **Baseplate**, **Grid Optimizer**, and **Themes** using the tab strip. Each field group is a collapsible section — expand or collapse what you need, including the **Common Settings** panel above the tabs.
+**Pick a tab and set your parameters.** Switch between **Bin**, **Baseplate**, **Grid Optimizer**, and **Themes** using the tab strip. Each field group is a collapsible section — expand or collapse what you need, including the **Common Settings** panel above the tabs. To keep a first launch simple, most sections start collapsed (Bin: Compartments through Configurations; Baseplate: Stacking through Configurations; plus Common Settings); the palette remembers which ones you open or close, **Expand all / Collapse all** under the tabs act on the current tab, and a collapsed section opens itself if it contains a validation error. A collapsed section’s header shows a one-line summary of its current setting (for example “Scoop · on”, or the active preset name on Configurations).
+
+**Hover the ⓘ icons** next to the dimension and unit settings for short explanations. Sizes labelled **(units)** are Gridfinity grid units, not millimetres: width/length count 42 mm grid cells and height counts 7 mm vertical units (both Gridfinity standards, and both editable via Common Settings / Height unit). A bin’s stacking lip adds a further fixed 3.8 mm on top, so a 5-unit bin with a lip is 5 × 7 + 3.8 = 38.8 mm tall. The 3.8 mm lip is fixed in the add-in. The millimetre size is always shown under the bin’s dimensions as **Actual size**.
 
 **Preview, then Generate.** Click **Update Preview** to see the result in the viewport before committing to anything (this can be re-run as many times as you like, replacing the previous preview). When you’re happy with it, click **Generate** to make it a permanent part of your design. **Clear Preview** removes a preview without generating.
 
@@ -70,6 +72,8 @@ Generates a parametric Gridfinity bin: overall size (in grid units), wall type (
 
 **Half-unit edges** *(new in this fork)*: check **Left**, **Right**, **Front**, and/or **Back** to add a half-unit-wide strip to that edge of the bin. Where two adjacent checked edges meet at a corner, that cell becomes quarter-size automatically — no extra configuration needed. Width/length can be **0** if the corresponding pair of half-edges (Left+Right, or Front+Back) supplies the whole dimension on that axis, letting you build a bin entirely out of half- and quarter-size cells. Magnet/screw cutouts and lip notches are placed per-module, but magnet/screw cutouts only ever apply to true full-size cells.
 
+**Bin tab layout:** **Configurations** sits at the top of the tab; **Advanced** (lip notches, magnet cutout tabs) is a separate collapsed section. Value fields such as scoop radius, label tab length/width/position/angle, and screw hole diameter are grayed out until their checkbox is checked.
+
 ###  
 
 ### Baseplate
@@ -83,6 +87,8 @@ Generates a parametric Gridfinity baseplate. Four types are available:
 * **Full** — solid extended bottom, with magnet and screw cutouts.
 
 * **Stackable** *(new in this fork)* — see below.
+
+**Side padding** adds extra solid material outside the grid, in millimetres, on the **Left, Back, Right, and Front** sides (matching Fusion’s view cube; these were labelled Top/Bottom before v1.5). The four padding fields and the screw-hole and connection-hole diameters are grayed out until their checkbox is checked.
 
 **Half-unit edges** *(new in this fork)*: same **Left/Right/Front/Back** checkboxes as the Bin tab, available for all four plate types. A Skeletonized baseplate's decorative bottom groove pattern only applies to true full-size cells — half and quarter cells from checked edges stay solid, same as a Full-type cell.
 
@@ -243,6 +249,7 @@ A condensed summary of major milestones:
 - **Fleet UI standardization completed, plus an accessibility pass (v1.4.0)** — the "Theme" tab is renamed **Themes** (plural) and its content restructured to match the fleet standard; **Common Settings** is now collapsible like every other panel; the Themes tab gained CSS-bundle (`style.css`) import/export alongside the existing single-theme `.theme.json` import/export, and a Factory Reset button for clearing every imported theme at once. Separately, every button's foreground color now goes through a themed `--btn-primary-text`/`--btn-danger-text` variable (checked against WCAG AA contrast per built-in theme — Midnight and Sandstone needed dark text, not white, on their bright accent buttons), every interactive element shows a visible keyboard-only focus ring, and the confirmation-modal backdrop is themed instead of a fixed black tint.
 - **Font controls now reach every element (v1.4.1)** — Font Family/Base Font Size on the Themes tab previously only scaled body text; buttons, dropdowns, and text fields silently kept the browser's default UI font. Fixed fleet-wide with an explicit font inheritance rule for form controls.
 - **Multi-monitor palette visibility fix (v1.4.2)** — Fusion won't draw a floating palette outside the display its own main window occupies, so a palette last parked on a second monitor could go silently invisible when Fusion was later opened on a different one. The saved position is now checked against Fusion's actual display on open and remapped onto it at the same relative spot when they don't match. A new standalone `PaletteDisplayCheck` script reports monitor layout and the saved-position verdict for troubleshooting.
+- **Calmer first launch, remembered sections, tooltips, and UI polish (v1.5)** — most sections start collapsed with live one-line summaries in their headers, open/closed state is remembered, Expand all / Collapse all and auto-open-on-error were added, ⓘ tooltips explain grid units vs. millimetres (and the Grid Optimizer’s settings), Configurations moved to the top of the Bin and Baseplate tabs, Bin gained an Advanced section, dependent fields gray out until their checkbox is on, checkboxes are left-aligned, and baseplate padding labels now use Left/Back/Right/Front.
 
 ---
 

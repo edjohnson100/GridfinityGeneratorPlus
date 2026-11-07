@@ -44,7 +44,7 @@ CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'c
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
 
 PALETTE_TITLE = 'GridfinityGeneratorPlus'
-PALETTE_VERSION = 29
+PALETTE_VERSION = 36
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Local list of event handlers for the command button.
@@ -210,6 +210,9 @@ def palette_display_report() -> str:
 # appConfig.load_imported_themes()/save_imported_theme(), keyed by theme id, so
 # every theme ever imported survives a restart, not just whichever was active.
 THEME_CONFIG_KEY = 'theme'
+# Per-section open/closed state ({'tab-bin:Scoop': True, ...}), only the sections
+# the user has toggled -- the rest fall back to index.html's `open` defaults.
+SECTION_STATE_KEY = 'sectionState'
 # fontFamily/fontSize mirror the --font-family/--font-size-base defaults in
 # style.css's :root block -- kept in sync manually since the CSS is the source of
 # truth for what "unmodified" looks like, this is just the fallback for a user who
@@ -562,9 +565,19 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                     'importedThemes': appConfig.load_imported_themes(),
                     'source': 'defaults',
                 })
+                _send(palette, 'section_state', {
+                    'sections': appConfig.load().get(SECTION_STATE_KEY, {}),
+                })
 
             elif action == 'update_theme':
                 _save_theme(form)
+
+            elif action == 'update_section_state':
+                key = data.get('key')
+                if isinstance(key, str):
+                    sections = appConfig.load().get(SECTION_STATE_KEY, {})
+                    sections[key] = bool(data.get('open'))
+                    appConfig.update({SECTION_STATE_KEY: sections})
 
             elif action == 'save_imported_theme':
                 themeId = data.get('id')

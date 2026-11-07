@@ -143,6 +143,8 @@ window.fusionJavaScriptHandler = {
                 showNotification(parsed.type, parsed.message);
             } else if (action === 'preview_status') {
                 onPreviewStatus(parsed);
+            } else if (action === 'section_state') {
+                applySectionState(parsed.sections || {});
             } else if (action === 'config_list') {
                 onConfigList(parsed);
             } else if (action === 'optimizer_result') {
@@ -232,6 +234,7 @@ function onValidationResult(payload) {
     state.valid[tab] = payload.valid;
     state.fieldErrors[tab] = payload.fieldErrors || {};
     renderFieldErrors(tab);
+    openSectionsWithErrors();
     if (tab === 'bin' || tab === 'baseplate') {
         renderComputed(tab, payload.computed || {});
     }
@@ -265,6 +268,7 @@ function onConfigList(payload) {
 function renderConfigStatus(tab) {
     const active = state.activeConfig[tab];
     const activeLabel = document.getElementById(`${tab}-config-active`);
+    updateSectionSummaries();
     activeLabel.innerHTML = active
         ? `Active config: <strong>${escapeHtml(active)}</strong>`
         : 'Active config: <em>(none, using defaults)</em>';
@@ -465,6 +469,7 @@ function writeFormToDom(tab, displayForm) {
 function renderForm(tab) {
     const displayForm = cmFormToDisplayForm(tab, state.forms[tab]);
     writeFormToDom(tab, displayForm);
+    updateSectionSummaries();
 }
 
 function renderFieldErrors(tab) {
@@ -575,6 +580,15 @@ function uniformCompartments(gridWidth, gridLength, depthMm) {
     return rows;
 }
 
+// Disable a value field (and dim its label) while the checkbox that governs it is off.
+// `forceOff` lets a caller fold in additional gating (e.g. plate type).
+function setFieldEnabled(id, enabled) {
+    const el = document.getElementById(id);
+    el.disabled = !enabled;
+    const label = el.closest('label');
+    if (label) label.classList.toggle('disabled-row', !enabled);
+}
+
 function updateBinConditionalVisibility() {
     const gridType = document.getElementById('bin.compartmentsGridType').value;
     document.getElementById('bin-compartments-table-wrapper').classList.toggle('hidden', gridType !== 'Custom');
@@ -590,7 +604,16 @@ function updateBinConditionalVisibility() {
     hasMagnetCutoutsTabsInput.disabled = !hasMagnetCutouts;
     if (!hasMagnetCutouts) hasMagnetCutoutsTabsInput.checked = false;
     document.getElementById('bin-has-magnet-cutouts-tabs-row').classList.toggle('disabled-row', !hasMagnetCutouts);
+
+    setFieldEnabled('bin.scoopMaxRadius', document.getElementById('bin.hasScoop').checked);
+    const hasTab = document.getElementById('bin.hasTab').checked;
+    ['tabLength', 'tabWidth', 'tabPosition', 'tabAngleDeg'].forEach(f => setFieldEnabled('bin.' + f, hasTab));
+    setFieldEnabled('bin.screwDiameter', document.getElementById('bin.hasScrewHoles').checked);
 }
+
+['bin.hasScoop', 'bin.hasTab', 'bin.hasScrewHoles'].forEach(id => {
+    document.getElementById(id).addEventListener('change', updateBinConditionalVisibility);
+});
 
 document.getElementById('bin-compartments-add').addEventListener('click', () => {
     const compartments = readCompartmentsFromDom();
@@ -815,6 +838,15 @@ function updateBaseplateConditionalVisibility() {
 
     const isStackable = plateType === 'Stackable';
     const stackCount = parseInt(document.getElementById('baseplate.stackCount').value, 10) || 1;
+    // Value fields follow their own checkbox, on top of the plate-type gating above.
+    const hasScrewHoles = document.getElementById('baseplate.hasScrewHoles').checked;
+    setFieldEnabled('baseplate.screwDiameter', hasExtendedBottom && hasScrewHoles);
+    setFieldEnabled('baseplate.screwHeadDiameter', hasExtendedBottom && hasScrewHoles);
+    const hasSidePadding = document.getElementById('baseplate.hasSidePadding').checked;
+    ['paddingLeft', 'paddingTop', 'paddingRight', 'paddingBottom'].forEach(f => setFieldEnabled('baseplate.' + f, hasSidePadding));
+    setFieldEnabled('baseplate.connectionHoleDiameter',
+        hasSkeletonizedBottom && document.getElementById('baseplate.hasConnectionHoles').checked);
+
     document.getElementById('baseplate-stackable-fieldset').classList.toggle('disabled-row', !isStackable);
     document.getElementById('baseplate.stackCount').disabled = !isStackable;
     document.getElementById('baseplate-stackable-hint').textContent =
@@ -830,6 +862,10 @@ function updateBaseplateConditionalVisibility() {
     document.getElementById('baseplate-bin-z-clearance-stack-hint').textContent =
         isStackable ? 'For best print results, a clearance of at least 1-1.5mm is recommended for stackable baseplates' : '';
 }
+
+['baseplate.hasScrewHoles', 'baseplate.hasSidePadding', 'baseplate.hasConnectionHoles'].forEach(id => {
+    document.getElementById(id).addEventListener('change', updateBaseplateConditionalVisibility);
+});
 
 document.getElementById('baseplate.plateType').addEventListener('change', () => {
     updateBaseplateConditionalVisibility();
@@ -1332,6 +1368,146 @@ function waitForFusionBridge(retries = 40) {
     } else {
         console.error('Fusion bridge never became available');
     }
+}
+
+// ---- Tooltips: keep them inside the palette, and don't let a click on an icon
+// ---- inside a <label> focus/toggle that label's input.
+function positionTooltip(icon) {
+    const tip = icon.querySelector('.tooltip');
+    if (!tip) return;
+    tip.style.left = '0';
+    tip.classList.remove('tooltip-below');
+    let rect = tip.getBoundingClientRect();
+    const overflow = rect.right - (window.innerWidth - 8);
+    if (overflow > 0) tip.style.left = `${-overflow}px`;
+    if (rect.top < 4) tip.classList.add('tooltip-below');
+}
+document.addEventListener('mouseover', e => {
+    const icon = e.target.closest && e.target.closest('.info-icon');
+    if (icon) positionTooltip(icon);
+});
+document.addEventListener('focusin', e => {
+    const icon = e.target.closest && e.target.closest('.info-icon');
+    if (icon) positionTooltip(icon);
+});
+document.addEventListener('click', e => {
+    if (e.target.closest && e.target.closest('label .info-icon')) e.preventDefault();
+});
+
+// (Initial render and bridge handshake live at the very end of this file so every
+// const/let above -- including the section-summary tables -- is initialized first.)
+// Left-align checkbox labels (box + text together) instead of space-between.
+document.querySelectorAll('label > input[type="checkbox"]').forEach(cb => {
+    cb.parentElement.classList.add('checkbox-label');
+});
+
+// ---- Collapsible sections: remember open/closed per section ----
+// index.html sets the first-launch defaults via the `open` attribute; Python
+// persists only the sections the user has toggled (GGPlus_config.json).
+function sectionKey(details) {
+    const panel = details.closest('.tab-panel');
+    // Own text nodes only -- the summary also holds a live .summary-hint span.
+    const title = Array.from(details.querySelector(':scope > summary').childNodes)
+        .filter(n => n.nodeType === Node.TEXT_NODE).map(n => n.textContent).join('').trim();
+    return (panel ? panel.id : 'app') + ':' + title;
+}
+
+let applyingSectionState = false;
+
+function applySectionState(saved) {
+    applyingSectionState = true;
+    document.querySelectorAll('details.section').forEach(d => {
+        const key = sectionKey(d);
+        if (key in saved) d.open = !!saved[key];
+    });
+    // toggle events fire asynchronously; release the guard after they've run
+    setTimeout(() => { applyingSectionState = false; }, 0);
+}
+
+// `toggle` doesn't bubble, so listen in the capture phase.
+document.addEventListener('toggle', e => {
+    if (applyingSectionState) return;
+    const d = e.target;
+    if (!(d instanceof HTMLDetailsElement) || !d.classList.contains('section')) return;
+    sendToFusion('update_section_state', { key: sectionKey(d), open: d.open });
+}, true);
+
+// ---- Collapsed-section summary hints + expand/collapse all ----
+function _val(id) { return document.getElementById(id).value; }
+function _on(id) { return document.getElementById(id).checked; }
+function _onOff(id, extra) { return _on(id) ? (extra ? 'on, ' + extra : 'on') : 'off'; }
+
+const SECTION_SUMMARIES = {
+    'common-panel': () => `${_val('common.baseWidthUnit')}\u00d7${_val('common.baseLengthUnit')} mm grid, clr ${_val('common.xyClearance')}, magnet \u00d8${_val('common.magnetDiameter')}\u00d7${_val('common.magnetDepth')}`,
+    'tab-bin:Compartments': () => _val('bin.compartmentsGridType') === 'Custom'
+        ? 'custom' : `${_val('bin.compartmentsGridWidth')}\u00d7${_val('bin.compartmentsGridLength')}`,
+    'tab-bin:Scoop': () => _onOff('bin.hasScoop', _val('bin.scoopMaxRadius') + ' mm'),
+    'tab-bin:Label tab': () => _onOff('bin.hasTab'),
+    'tab-bin:Base': () => {
+        const parts = [];
+        if (_on('bin.hasScrewHoles')) parts.push('screw holes');
+        if (_on('bin.hasMagnetCutouts')) parts.push('magnets');
+        return parts.length ? parts.join(', ') : 'plain';
+    },
+    'tab-bin:Advanced': () => {
+        const parts = [];
+        if (_on('bin.withLipNotches')) parts.push('lip notches');
+        if (_on('bin.hasMagnetCutoutsTabs')) parts.push('magnet tabs');
+        return parts.length ? parts.join(', ') : 'defaults';
+    },
+    'tab-bin:Configurations': () => activeConfigHint('bin'),
+    'tab-baseplate:Configurations': () => activeConfigHint('baseplate'),
+    'tab-baseplate:Stacking': () => _val('baseplate.plateType') === 'Stackable'
+        ? `\u00d7${_val('baseplate.stackCount')}` : 'n/a',
+    'tab-baseplate:Laser cutting': () => _onOff('baseplate.generateDxfSketch'),
+    'tab-baseplate:Magnet cutouts': () => _onOff('baseplate.hasMagnetCutouts'),
+    'tab-baseplate:Screw holes': () => _onOff('baseplate.hasScrewHoles'),
+    'tab-baseplate:Side padding': () => _onOff('baseplate.hasSidePadding'),
+    'tab-baseplate:Advanced': () => _val('baseplate.plateType') === 'Skeletonized'
+        ? _onOff('baseplate.hasConnectionHoles', null).replace(/^/, 'connection holes ') : 'defaults',
+};
+
+function activeConfigHint(tab) {
+    return (state.activeConfig && state.activeConfig[tab]) || 'none';
+}
+
+function updateSectionSummaries() {
+    document.querySelectorAll('details.section').forEach(d => {
+        const key = d.id === 'common-panel' ? 'common-panel' : sectionKey(d);
+        const fn = SECTION_SUMMARIES[key];
+        if (!fn) return;
+        const summary = d.querySelector(':scope > summary');
+        let hint = summary.querySelector('.summary-hint');
+        if (!hint) {
+            hint = document.createElement('span');
+            hint.className = 'summary-hint';
+            summary.appendChild(hint);
+        }
+        try { hint.textContent = '\u00b7 ' + fn(); } catch (e) { hint.textContent = ''; }
+    });
+}
+
+document.addEventListener('input', updateSectionSummaries);
+document.addEventListener('change', updateSectionSummaries);
+
+function setSectionsOpen(open) {
+    document.querySelectorAll('.tab-panel.active details.section').forEach(d => { d.open = open; });
+}
+document.getElementById('sections-expand-all').addEventListener('click', () => setSectionsOpen(true));
+document.getElementById('sections-collapse-all').addEventListener('click', () => setSectionsOpen(false));
+
+// Auto-open a collapsed section that holds a validation error, without
+// persisting that as the user's own open/closed choice.
+function openSectionsWithErrors() {
+    document.querySelectorAll('.field-error').forEach(el => {
+        if (!el.textContent) return;
+        const d = el.closest('details.section');
+        if (d && !d.open) {
+            applyingSectionState = true;
+            d.open = true;
+            setTimeout(() => { applyingSectionState = false; }, 0);
+        }
+    });
 }
 
 renderForm('common');

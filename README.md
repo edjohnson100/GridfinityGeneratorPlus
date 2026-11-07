@@ -1,10 +1,10 @@
 # GridfinityGeneratorPlus
 
-Version: 1.4.2.0
+Version: 1.5.0.0
 
 By Ed Johnson (Making With An EdJ)
 
-August, 2026
+November, 2026
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
@@ -24,6 +24,14 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 6: Half-unit grid support & DXF export for laser cutting.** Add a half-unit-wide strip to any edge (Left/Right/Front/Back) of a bin or baseplate — where two checked edges meet at a corner, that cell automatically becomes quarter-size, no extra configuration needed. Baseplates can also generate a DXF-ready sketch for laser-cut fabrication.
 
 ---
+## ✨ What's New in v1.5
+
+* **A calmer first launch.** Most sections now start collapsed (Bin: Compartments through Configurations; Baseplate: Stacking through Configurations; plus Common Settings), so new users can walk down the options and open them as needed. Which sections you open or close is remembered between sessions, **Expand all / Collapse all** links sit under the tabs, and a collapsed section opens itself if it holds a validation error. Collapsed headers show a live one-line summary (e.g. "Scoop · on", "Configurations · MyPreset").
+* **Explanatory tooltips.** New ⓘ tooltips on the unit and dimension settings explain Gridfinity units vs. millimetres, quote the Gridfinity standards (42 mm grid, 7 mm height unit, 3.8 mm stacking lip) and say *why* each setting exists. Labels now read "(units)" instead of "(u)". The Grid Optimizer has tooltips too.
+* **Configurations moved to the top** of the Bin and Baseplate tabs, and a new Bin **Advanced** section holds lip notches and magnet cutout tabs.
+* **Fields gray out when their checkbox is off** (scoop radius, label tab values, screw hole diameters, baseplate side padding, connection hole diameter), and **checkboxes are now left-aligned** next to their text.
+* **Consistent directions.** Baseplate side padding is now Left/Back/Right/Front, matching Fusion's view cube and the half-unit edge checkboxes (formerly Top/Bottom). Saved presets are unaffected.
+
 ## ✨ What's New in v1.4.2
 
 * **Fixed the palette going invisible on multi-monitor setups.** If the palette was last parked on a second monitor and Fusion is later opened with its main window on a different monitor, Fusion refuses to draw a floating palette outside its own display — so the palette would silently fail to appear. The saved position is now checked against Fusion's actual display on open and remapped onto it when they don't match, at the same relative spot. A new standalone `PaletteDisplayCheck` script (Scripts and Add-Ins → Scripts) reports monitor layout, Fusion's window, and the saved position for troubleshooting.
@@ -97,6 +105,7 @@ In the **DESIGN** workspace, find the **SOLID** toolbar panel's **CREATE** dropd
 * **Common settings panel:** base grid unit, XY clearance, and magnet cutout size, shared by both Bin and Baseplate so they always stay compatible with each other.
 * **Update Preview / Generate / Clear Preview:** preview a part in the viewport before committing to it, make it permanent when you're happy, or discard the preview entirely.
 * **Configurations:** save, load, and delete named presets per tab (Bin, Baseplate, Grid Optimizer), so a frequently-used setup is always one click away.
+* **Collapsible sections & tooltips:** most sections start collapsed so a new user sees a short list of options; hover the ⓘ icons for plain-language explanations of units vs. millimetres. Your open/closed choices are remembered.
 
 ### Edit Active Component
 Activate a previously generated Gridfinity part in the Fusion browser by hovering over the component name and clicking the radio button that appears to the righ of the name, then click **Edit Active Component** at the top of the palette — it reloads the exact settings used to build that part.
