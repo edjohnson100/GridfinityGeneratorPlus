@@ -1,6 +1,7 @@
 import math
 
 from ...lib.gridfinityUtils import const, gridSlicing
+from . import drawerLayout
 
 
 def validate_bin(form: dict) -> dict:
@@ -225,6 +226,19 @@ def validate_optimizer(form: dict) -> dict:
         fieldErrors['maxSize'] = 'Must be greater than min size'
     if priority not in ('widthOnly', 'width', 'balanced', 'depth', 'depthOnly'):
         fieldErrors['priority'] = 'Must be widthOnly, width, balanced, depth, or depthOnly'
+
+    for key in ('bedWidth', 'bedDepth'):
+        if not float(get(key, 25.6)) > 0:
+            fieldErrors[key] = 'Must be greater than 0'
+
+    for key in ('binBedWidth', 'binBedDepth'):
+        value = form.get(key)  # optional: blank/None means "same as the baseplate bed"
+        if value is not None and not float(value) > 0:
+            fieldErrors[key] = 'Must be greater than 0 (or leave blank)'
+
+    paletteErrors = drawerLayout.parse_bin_palette(get('binPalette', ''))[1]
+    if paletteErrors:
+        fieldErrors['binPalette'] = '; '.join(paletteErrors)
 
     if not items:
         fieldErrors['items'] = 'Add at least one dimension'

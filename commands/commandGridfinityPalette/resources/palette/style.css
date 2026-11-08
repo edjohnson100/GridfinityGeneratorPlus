@@ -349,6 +349,18 @@ label select {
   max-width: 150px;
 }
 
+/* A long free-text value (e.g. the bin size list): label on its own line, input spanning the full width. */
+label.wide-field {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+label.wide-field input[type="text"] {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+}
+
 input[type="number"],
 input[type="text"],
 select {
@@ -449,6 +461,7 @@ input::placeholder {
    and wiping the whole imported-theme cache -- the same way the fleet's
    LiveUtilities reference styles its destructive theme buttons. */
 #theme-remove:not(:disabled),
+#optimizer-custom-clear:not(:disabled),
 button[data-action="factory_reset"][data-tab="theme"] {
   color: var(--text-danger);
   border-color: var(--text-danger);

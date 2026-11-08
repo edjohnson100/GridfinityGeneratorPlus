@@ -5,7 +5,7 @@ const MM_FIELDS = {
     common: ['baseWidthUnit', 'baseLengthUnit', 'xyClearance', 'magnetDiameter', 'magnetDepth'],
     bin: ['heightUnit', 'wallThickness', 'scoopMaxRadius', 'tabWidth', 'screwDiameter'],
     baseplate: ['screwDiameter', 'screwHeadDiameter', 'paddingLeft', 'paddingTop', 'paddingRight', 'paddingBottom', 'extraBottomThickness', 'binZClearance', 'connectionHoleDiameter', 'interfaceLayerThickness'],
-    optimizer: ['minSize', 'maxSize'],
+    optimizer: ['minSize', 'maxSize', 'bedWidth', 'bedDepth', 'binBedWidth', 'binBedDepth'],
 };
 const COMPARTMENT_MM_FIELDS = ['depth'];
 const OPTIMIZER_ITEM_MM_FIELDS = ['width', 'depth'];
@@ -102,7 +102,7 @@ const state = {
             stackCount: 1, interfaceLayerThickness: 0.04,
         },
         optimizer: {
-            minSize: 3.0, maxSize: 7.5, allowHalfBins: true, compareStandard: false, priority: 'balanced', items: [],
+            minSize: 3.0, maxSize: 7.5, allowHalfBins: true, compareStandard: false, priority: 'balanced', layoutGrid: 'optimized', bedWidth: 25.6, bedDepth: 25.6, binBedWidth: null, binBedDepth: null, binStrategy: 'perTile', maxBinCellsWidth: 3, maxBinCellsDepth: 3, binPalette: '2x2, 1x1', tileBinSettings: {}, items: [],
         },
         theme: { name: 'System', fontFamily: '-apple-system, "Segoe UI", Helvetica, Arial, sans-serif', fontSize: 12 },
     },
@@ -148,6 +148,8 @@ window.fusionJavaScriptHandler = {
                 applySectionState(parsed.sections || {});
             } else if (action === 'config_list') {
                 onConfigList(parsed);
+            } else if (action === 'layout_result') {
+                renderDrawerLayout(parsed);
             } else if (action === 'optimizer_result') {
                 renderOptimizerResults(parsed);
             } else if (action === 'theme_export_result') {
@@ -355,7 +357,7 @@ function _closeModal(value) {
     if (resolve) resolve(value);
 }
 
-function _openModal({ title, bodyHtml, confirmLabel, danger, getValue, onOpen }) {
+function _openModal({ title, bodyHtml, confirmLabel, danger, getValue, onOpen, noCancel }) {
     if (_modalOpen) {
         console.error('_openModal called while a modal is already open');
         return Promise.resolve(null);
@@ -367,6 +369,9 @@ function _openModal({ title, bodyHtml, confirmLabel, danger, getValue, onOpen })
     const confirmBtn = document.getElementById('modal-btn-confirm');
     confirmBtn.textContent = confirmLabel || 'OK';
     confirmBtn.classList.toggle('danger', !!danger);
+    // Notice-style modals have only an OK button and ignore backdrop clicks, so the
+    // message can't be dismissed by accident.
+    document.getElementById('modal-btn-cancel').style.display = noCancel ? 'none' : '';
     document.getElementById('modal-overlay').classList.remove('hidden');
 
     return new Promise(resolve => {
@@ -374,11 +379,24 @@ function _openModal({ title, bodyHtml, confirmLabel, danger, getValue, onOpen })
         confirmBtn.onclick = () => _closeModal(getValue ? getValue() : true);
         document.getElementById('modal-btn-cancel').onclick = () => _closeModal(null);
         document.getElementById('modal-overlay').onclick = e => {
-            if (e.target.id === 'modal-overlay') _closeModal(null);
+            if (!noCancel && e.target.id === 'modal-overlay') _closeModal(null);
         };
         document.addEventListener('keydown', _modalKeydown);
         if (onOpen) onOpen();
     });
+}
+
+// Notice with a single OK button; `messages` is a string or an array of paragraphs.
+function showAlertModal(messages, opts = {}) {
+    const list = Array.isArray(messages) ? messages : [messages];
+    return _openModal({
+        title: opts.title || 'Notice',
+        bodyHtml: list.map(m => `<p>${escapeHtml(m)}</p>`).join(''),
+        confirmLabel: 'OK',
+        noCancel: true,
+        getValue: () => true,
+        onOpen: () => document.getElementById('modal-btn-confirm').focus(),
+    }).then(() => undefined);
 }
 
 function showConfirmModal(message, opts = {}) {
@@ -425,7 +443,7 @@ function readFormFromDom(tab) {
         const field = el.id.slice(tab.length + 1);
         if (el.type === 'checkbox') {
             form[field] = el.checked;
-        } else if (el.tagName === 'SELECT') {
+        } else if (el.tagName === 'SELECT' || el.type === 'text') {
             form[field] = el.value;
         } else {
             form[field] = parseFloat(el.value);
@@ -436,6 +454,8 @@ function readFormFromDom(tab) {
     }
     if (tab === 'optimizer') {
         form.items = readOptimizerItemsFromDom();
+        form.tileBinSettings = JSON.parse(JSON.stringify(tileBinSettings));
+        form.customBins = JSON.parse(JSON.stringify(customBins));
     }
     return form;
 }
@@ -464,6 +484,12 @@ function writeFormToDom(tab, displayForm) {
         // column was last clicked in this session -- don't claim otherwise.
         optimizerSort = { field: null, dir: 1 };
         renderOptimizerItemsTable(displayForm.items || []);
+        // Per-tile bin overrides belong to the saved set; a freshly loaded set invalidates the drawing.
+        tileBinSettings = displayForm.tileBinSettings || {};
+        customBins = Array.isArray(displayForm.customBins) ? displayForm.customBins : [];
+        selectedTileKey = null;
+        clearDrawerLayout();
+        updateBinFillFieldStates();
     }
 }
 
@@ -777,13 +803,609 @@ function renderFitRow(item) {
     return tr;
 }
 
+// ---- Apply a calculated layout (optimized vs. standard 42 mm) to Common / Baseplate ----
+let lastOptimizerResult = null;
+
+// The layout the user picked: { sizeMm, items } from either the optimum or the standard grid.
+function selectedOptimizerLayout() {
+    const p = lastOptimizerResult;
+    if (!p) return null;
+    if (document.getElementById('optimizer.layoutGrid').value === 'common') {
+        const w = parseFloat(document.getElementById('common.baseWidthUnit').value);
+        const l = parseFloat(document.getElementById('common.baseLengthUnit').value);
+        // The drawer layout works on one square pitch, so a non-square Common grid can't be used.
+        if (!(w > 0) || Math.abs(w - l) > 1e-6) return null;
+        const half = document.getElementById('optimizer.allowHalfBins').checked;
+        // Same fit math as optimizer.calculate_fit, at the Common Settings grid unit.
+        const items = (p.items || []).map(it => {
+            const full = Math.floor(it.dimensionMm / w + 1e-9);
+            const rem = it.dimensionMm - full * w;
+            const useHalf = half && rem >= w / 2 - 1e-9;
+            const waste = useHalf ? rem - w / 2 : rem;
+            return Object.assign({}, it, { full: full, half: useHalf ? 1 : 0, wasteMm: Math.round(waste * 100) / 100 });
+        });
+        return { sizeMm: w, items: items };
+    }
+    if (document.getElementById('optimizer.layoutGrid').value === 'standard' && p.standard) {
+        return { sizeMm: p.standard.sizeMm, items: p.standard.items };
+    }
+    return { sizeMm: p.optimalSizeMm, items: p.items };
+}
+
+// Items come as consecutive Width/Depth rows per opening; pair them back up.
+function pairOpenings(items) {
+    const openings = [];
+    for (let i = 0; i + 1 < items.length; i += 2) {
+        openings.push({ description: items[i].description, width: items[i], depth: items[i + 1] });
+    }
+    return openings;
+}
+
+function updateOptimizerLayoutSummary() {
+    const layout = selectedOptimizerLayout();
+    const el = document.getElementById('optimizer-layout-summary');
+    if (layout) {
+        el.textContent = `Selected grid size: ${layout.sizeMm} mm`;
+    } else if (lastOptimizerResult && document.getElementById('optimizer.layoutGrid').value === 'common') {
+        el.textContent = 'Common Settings grid must be square (equal width and length units) and above 0 to lay out a drawer.';
+    } else {
+        el.textContent = '';
+    }
+}
+['common.baseWidthUnit', 'common.baseLengthUnit', 'optimizer.allowHalfBins'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateOptimizerLayoutSummary);
+    document.getElementById(id).addEventListener('change', updateOptimizerLayoutSummary);
+});
+
+function applyGridSizeToCommon(sizeMm) {
+    const cm = mmToCm(sizeMm);
+    state.forms.common = Object.assign({}, state.forms.common, { baseWidthUnit: cm, baseLengthUnit: cm });
+    renderForm('common');
+    sendToFusion('update_common', { form: state.forms.common });
+    requestValidation(state.activeTab);
+}
+
+document.getElementById('optimizer.layoutGrid').addEventListener('change', updateOptimizerLayoutSummary);
+
+document.getElementById('optimizer-apply-common').addEventListener('click', () => {
+    const layout = selectedOptimizerLayout();
+    if (!layout) return;
+    applyGridSizeToCommon(layout.sizeMm);
+    showNotification('success', `Grid size set to ${layout.sizeMm} mm in Common Settings`);
+});
+
+document.getElementById('optimizer-send-baseplate').addEventListener('click', () => {
+    const layout = selectedOptimizerLayout();
+    if (!layout) return;
+    const opening = pairOpenings(layout.items)[parseInt(document.getElementById('optimizer-opening').value, 10)];
+    if (!opening) return;
+    const w = opening.width, d = opening.depth;
+    applyGridSizeToCommon(layout.sizeMm);
+    // Opening width -> plate width (X), depth -> plate length (Y). A half-size strip goes on
+    // the right/back edge; leftover is split evenly into side padding so the plate is centered.
+    const wasteW = mmToCm(w.wasteMm), wasteD = mmToCm(d.wasteMm);
+    state.forms.baseplate = Object.assign({}, state.forms.baseplate, {
+        plateWidth: w.full, plateLength: d.full,
+        hasHalfLeft: false, hasHalfRight: w.half > 0, hasHalfFront: false, hasHalfBack: d.half > 0,
+        hasSidePadding: w.wasteMm > 0 || d.wasteMm > 0,
+        paddingLeft: wasteW / 2, paddingRight: wasteW / 2,
+        paddingTop: wasteD / 2, paddingBottom: wasteD / 2,
+    });
+    // Stacked plates can't be laid out as separate tiles, so never leave a stack count > 1 here.
+    const warnings = [];
+    // Always start from Light; the user can pick another non-stackable type afterwards.
+    const wasType = state.forms.baseplate.plateType;
+    state.forms.baseplate.plateType = 'Light';
+    state.forms.baseplate.stackCount = 1;
+    if (wasType !== 'Light') {
+        warnings.push(`Baseplate type set to Light (was ${wasType}); drawer layouts don't support Stackable plates, but you can switch to Full or Skeletonized`);
+    }
+    // Warn when the single plate won't fit the printer bed (tiling is not built yet).
+    const bedW = parseFloat(document.getElementById('optimizer.bedWidth').value);
+    const bedD = parseFloat(document.getElementById('optimizer.bedDepth').value);
+    const tilesW = bedW > 0 ? Math.ceil(w.dimensionMm / bedW) : 1;
+    const tilesD = bedD > 0 ? Math.ceil(d.dimensionMm / bedD) : 1;
+    if (tilesW > 1 || tilesD > 1) {
+        warnings.push(`Plate is ${w.dimensionMm} x ${d.dimensionMm} mm, larger than the ${bedW} x ${bedD} mm bed: it needs ${tilesW} x ${tilesD} tiles to print, but this sends one plate`);
+    }
+    renderForm('baseplate');
+    setActiveTab('baseplate');
+    requestValidation('baseplate');
+    if (warnings.length) {
+        showAlertModal(warnings, { title: 'Check the Baseplate tab' });
+    } else {
+        showNotification('success', `Baseplate tab set for "${opening.description || 'opening'}" at ${layout.sizeMm} mm`);
+    }
+});
+
+// ---- Tiled drawer layout: request from Python, draw a read-only SVG schematic ----
+// Layout inputs for the selected grid + opening + bed + bin fill settings (shared by the
+// schematic request and the drawer build, so both always describe the same layout).
+function currentLayoutParams() {
+    const layout = selectedOptimizerLayout();
+    if (!layout) return null;
+    const opening = pairOpenings(layout.items)[parseInt(document.getElementById('optimizer-opening').value, 10)];
+    if (!opening) return null;
+    const num = id => parseFloat(document.getElementById(id).value);
+    const fitOf = r => ({ full: r.full, half: r.half, wasteMm: r.wasteMm });
+    return {
+        pitchMm: layout.sizeMm,
+        widthFit: fitOf(opening.width),
+        depthFit: fitOf(opening.depth),
+        bedWidthMm: num('optimizer.bedWidth'),
+        bedDepthMm: num('optimizer.bedDepth'),
+        binStrategy: document.getElementById('optimizer.binStrategy').value,
+        maxBinCellsWidth: num('optimizer.maxBinCellsWidth') || 3,
+        maxBinCellsDepth: num('optimizer.maxBinCellsDepth') || 3,
+        tileBinSettings: tileBinSettings,
+        customBins: customBins,
+        binPalette: document.getElementById('optimizer.binPalette').value,
+    };
+}
+
+// ---- Per-tile bin overrides (keyed "col,row"); click a tile in the schematic to edit ----
+let tileBinSettings = {};
+let selectedTileKey = null;
+
+// Hand-drawn bins ("Draw bins by hand"): [{tile: 'col,row', x0, x1, y0, y1}], inclusive column/row
+// ranges within a tile's cell grid counted from its front-left (a tile's half strip, if any, is one
+// extra half-width last column/row). Saved with the optimizer set; Python validates them.
+let customBins = [];
+let drawMode = false;          // "Add a bin" is active: clicks on cells build a selection
+let drawAnchor = null;         // first clicked cell {tile, col, row}
+let drawSel = null;            // current rectangle {tile, x0, x1, y0, y1}, waiting for "Save bin"
+let selectedCustomIndex = null; // a drawn bin picked (outside draw mode) for deletion
+let lastDrawerLayout = null;   // latest layout_result, used to hit-test cells and bins
+
+// Max bin width/depth only apply to "Uniform bins"; gray them out otherwise (globally and per tile),
+// and only enable the size list when some tile actually uses "Mixed sizes".
+function updateBinFillFieldStates() {
+    const globalStrategy = document.getElementById('optimizer.binStrategy').value;
+    const uniform = globalStrategy === 'uniform';
+    setFieldEnabled('optimizer.maxBinCellsWidth', uniform);
+    setFieldEnabled('optimizer.maxBinCellsDepth', uniform);
+    const anyPalette = globalStrategy === 'palette' ||
+        Object.values(tileBinSettings).some(s => s.strategy === 'palette');
+    setFieldEnabled('optimizer.binPalette', anyPalette);
+    document.getElementById('optimizer-fill-hint').textContent = uniform ? '' :
+        'Max bin width/depth only apply to "Uniform bins"; "Mixed sizes" uses the bin size list instead.';
+
+    const tileStrategy = document.getElementById('optimizer-tile-strategy').value || globalStrategy;
+    const tileUniform = tileStrategy === 'uniform';
+    setFieldEnabled('optimizer-tile-maxw', tileUniform);
+    setFieldEnabled('optimizer-tile-maxd', tileUniform);
+    updateCustomPanel();
+}
+
+// ---- Draw bins by hand ----
+// Hand-drawn bins use one cell grid for the whole drawer (so they can cross baseplate tile seams);
+// it is only active when the *global* fill is "Draw bins by hand".
+function customModeActive() {
+    return document.getElementById('optimizer.binStrategy').value === 'custom';
+}
+
+function emptyCellCount() {
+    const grid = lastDrawerLayout && lastDrawerLayout.customGrid;
+    return grid ? grid.uncovered.length : 0;
+}
+
+function updateCustomPanel() {
+    const active = customModeActive();
+    document.getElementById('optimizer-custom-panel').classList.toggle('hidden', !active);
+    if (!active) {
+        drawMode = false; drawAnchor = null; drawSel = null; selectedCustomIndex = null;
+        return;
+    }
+    // per-tile fill settings don't apply while hand-drawing on the drawer-wide grid
+    document.getElementById('optimizer-tile-panel').classList.add('hidden');
+    selectedTileKey = null;
+    document.getElementById('optimizer-custom-add').textContent = drawMode ? 'Done adding bins' : 'Add a bin';
+    document.getElementById('optimizer-custom-save').disabled = !drawSel;
+    document.getElementById('optimizer-custom-delete').disabled = selectedCustomIndex === null || drawMode;
+    document.getElementById('optimizer-custom-fill').disabled = !lastDrawerLayout || emptyCellCount() === 0;
+    let status;
+    if (!lastDrawerLayout) status = 'Click "Show tiled layout" first, then Add a bin.';
+    else if (drawMode) status = drawSel
+        ? 'Click another cell to resize the selection, or Save bin.'
+        : 'Click one corner cell of the bin, then the opposite corner cell (one cell is fine), then Save bin. Bins can cross baseplate tile boundaries.';
+    else status = 'Add a bin to draw one, or click a drawn bin in the drawing to select it.';
+    if (lastDrawerLayout) status += ` ${emptyCellCount()} empty cell(s) have no bin yet.`;
+    document.getElementById('optimizer-custom-status').textContent = status;
+}
+
+function cellInDrawnBin(col, row) {
+    return lastDrawerLayout.bins.some(b => b.customIndex !== undefined &&
+        col >= b.cx0 && col <= b.cx1 && row >= b.cy0 && row <= b.cy1);
+}
+
+function rectOverlapsDrawnBin(sel) {
+    for (let r = sel.y0; r <= sel.y1; r++) {
+        for (let c = sel.x0; c <= sel.x1; c++) {
+            if (cellInDrawnBin(c, r)) return true;
+        }
+    }
+    return false;
+}
+
+function onDrawCellClick(col, row) {
+    if (cellInDrawnBin(col, row)) {
+        showNotification('error', 'That cell already belongs to a drawn bin');
+        return;
+    }
+    if (!drawAnchor) {
+        // first corner: a one-cell selection that the second click can stretch
+        drawAnchor = { col, row };
+        drawSel = { x0: col, x1: col, y0: row, y1: row };
+    } else {
+        const sel = {
+            x0: Math.min(drawAnchor.col, col), x1: Math.max(drawAnchor.col, col),
+            y0: Math.min(drawAnchor.row, row), y1: Math.max(drawAnchor.row, row),
+        };
+        if (rectOverlapsDrawnBin(sel)) {
+            showNotification('error', 'That area overlaps a bin you already drew');
+            return;
+        }
+        drawSel = sel;
+        drawAnchor = null;  // the next click starts a new selection
+    }
+    updateCustomPanel();
+    renderDrawerLayout(lastDrawerLayout);
+}
+
+document.getElementById('optimizer-custom-add').addEventListener('click', () => {
+    if (!lastDrawerLayout) {
+        showNotification('error', 'Click "Show tiled layout" first');
+        return;
+    }
+    drawMode = !drawMode;
+    drawAnchor = null; drawSel = null; selectedCustomIndex = null;
+    updateCustomPanel();
+    renderDrawerLayout(lastDrawerLayout);
+});
+
+document.getElementById('optimizer-custom-save').addEventListener('click', () => {
+    if (!drawSel) return;
+    customBins.push({ x0: drawSel.x0, x1: drawSel.x1, y0: drawSel.y0, y1: drawSel.y1 });
+    drawSel = null; drawAnchor = null;
+    requestLayoutRefresh();  // Python re-validates; the redraw also refreshes the buttons/status
+});
+
+document.getElementById('optimizer-custom-delete').addEventListener('click', () => {
+    if (selectedCustomIndex === null) return;
+    customBins.splice(selectedCustomIndex, 1);
+    selectedCustomIndex = null;
+    requestLayoutRefresh();
+});
+
+document.getElementById('optimizer-custom-fill').addEventListener('click', () => {
+    if (!lastDrawerLayout) return;
+    const grid = lastDrawerLayout.customGrid;
+    if (!grid) return;
+    grid.uncovered.forEach(c => customBins.push({ x0: c.col, x1: c.col, y0: c.row, y1: c.row }));
+    requestLayoutRefresh();
+});
+
+document.getElementById('optimizer-custom-clear').addEventListener('click', async () => {
+    if (!customBins.length) return;
+    const ok = await showConfirmModal(`Remove all ${customBins.length} bins you drew? This cannot be undone.`, {
+        title: 'Clear drawn bins', confirmLabel: 'Clear', danger: true,
+    });
+    if (!ok) return;
+    customBins = []; drawSel = null; drawAnchor = null; selectedCustomIndex = null;
+    requestLayoutRefresh();
+});
+
+['optimizer.binStrategy', 'optimizer-tile-strategy'].forEach(id => {
+    document.getElementById(id).addEventListener('change', updateBinFillFieldStates);
+});
+// Changing the global fill changes what the drawing should show (and which tiles are hand-drawn).
+document.getElementById('optimizer.binStrategy').addEventListener('change', () => {
+    if (lastDrawerLayout) requestLayoutRefresh();
+});
+
+function requestLayoutRefresh() {
+    const params = currentLayoutParams();
+    if (params) sendToFusion('layout', params);
+}
+
+function showTilePanel() {
+    const panel = document.getElementById('optimizer-tile-panel');
+    if (!selectedTileKey) {
+        panel.classList.add('hidden');
+        return;
+    }
+    const s = tileBinSettings[selectedTileKey] || {};
+    document.getElementById('optimizer-tile-title').textContent = `Selected tile (column, row): ${selectedTileKey.replace(',', ', ')} (counting from the front-left)`;
+    document.getElementById('optimizer-tile-strategy').value = s.strategy || '';
+    document.getElementById('optimizer-tile-maxw').value = s.maxBinCellsWidth || '';
+    document.getElementById('optimizer-tile-maxd').value = s.maxBinCellsDepth || '';
+    panel.classList.remove('hidden');
+    updateBinFillFieldStates();
+}
+
+function onTileBinSettingChanged() {
+    if (!selectedTileKey) return;
+    const strategy = document.getElementById('optimizer-tile-strategy').value;
+    const w = parseInt(document.getElementById('optimizer-tile-maxw').value, 10);
+    const d = parseInt(document.getElementById('optimizer-tile-maxd').value, 10);
+    const s = {};
+    if (strategy) s.strategy = strategy;
+    if (w > 0) s.maxBinCellsWidth = w;
+    if (d > 0) s.maxBinCellsDepth = d;
+    if (Object.keys(s).length) tileBinSettings[selectedTileKey] = s;
+    else delete tileBinSettings[selectedTileKey];
+    updateBinFillFieldStates();
+    requestLayoutRefresh();
+}
+
+['optimizer-tile-strategy', 'optimizer-tile-maxw', 'optimizer-tile-maxd'].forEach(id => {
+    document.getElementById(id).addEventListener('change', onTileBinSettingChanged);
+});
+
+// Remember the last-typed printer bed on this machine, for sessions that start without a
+// saved set (a set that stores its own bed size still takes precedence when loaded).
+let bedSaveTimer = null;
+['optimizer.bedWidth', 'optimizer.bedDepth', 'optimizer.binBedWidth', 'optimizer.binBedDepth'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+        clearTimeout(bedSaveTimer);
+        bedSaveTimer = setTimeout(() => {
+            const mm = fieldId => parseFloat(document.getElementById(fieldId).value);
+            const w = mm('optimizer.bedWidth'), d = mm('optimizer.bedDepth');
+            const bw = mm('optimizer.binBedWidth'), bd = mm('optimizer.binBedDepth');
+            if (w > 0 && d > 0) {
+                sendToFusion('update_printer_bed', {
+                    bedWidth: mmToCm(w), bedDepth: mmToCm(d),
+                    binBedWidth: bw > 0 ? mmToCm(bw) : null, binBedDepth: bd > 0 ? mmToCm(bd) : null,
+                });
+            }
+        }, 500);
+    });
+});
+
+document.getElementById('optimizer-show-layout').addEventListener('click', async () => {
+    if (lastDrawerLayout) {
+        // Hide = start over with a clean slate: drop the schematic plus any hand-drawn bins and
+        // per-tile fill overrides, which only make sense relative to the layout being shown.
+        const hasWork = (customBins && customBins.length) || Object.keys(tileBinSettings || {}).length;
+        if (hasWork && !(await showConfirmModal(
+            'Hide the layout and discard the bins you drew and any per-tile bin settings?',
+            { title: 'Hide tiled layout', confirmLabel: 'Hide and reset' }))) return;
+        customBins = [];
+        tileBinSettings = {};
+        clearDrawerLayout();
+        updateBinFillFieldStates();
+        return;
+    }
+    const params = currentLayoutParams();
+    if (params) sendToFusion('layout', params);
+});
+
+function syncShowLayoutButton() {
+    document.getElementById('optimizer-show-layout').textContent =
+        lastDrawerLayout ? 'Hide tiled layout' : 'Show tiled layout';
+}
+
+// Describes which Baseplate/Bin tab settings the drawer will be built from.
+function updateDrawerSettingsSummary() {
+    const bp = readTabFormMergedWithCommon('baseplate');
+    const bn = readTabFormMergedWithCommon('bin');
+    document.getElementById('optimizer-drawer-settings').textContent =
+        `Drawer is built from the current Baseplate tab (type: ${bp.plateType}, magnets: ${bp.hasMagnetCutouts ? 'on' : 'off'}, ` +
+        `screw holes: ${bp.hasScrewHoles ? 'on' : 'off'}) and Bin tab (${bn.binType}, height ${bn.binHeight} units, ` +
+        `lip: ${bn.withLip ? 'on' : 'off'}). Change those tabs to change the drawer.`;
+}
+
+async function requestDrawerBuild(action) {
+    const params = currentLayoutParams();
+    if (!params) {
+        showNotification('error', 'Calculate and pick an opening first');
+        return;
+    }
+    const baseplateType = document.getElementById('baseplate.plateType').value;
+    if (baseplateType === 'Stackable') {
+        await showAlertModal(
+            'Drawer layouts cannot use Stackable baseplates. Switch the Baseplate tab to Light, Full or Skeletonized (or use "Send opening to Baseplate tab", which sets Light).',
+            { title: 'Stackable baseplate' });
+        return;
+    }
+    if (!(await confirmPreviewReplace('update_preview', 'optimizer'))) return;
+    // Pieces must use the same grid size as the layout, so make Common Settings match first.
+    applyGridSizeToCommon(params.pitchMm);
+    const baseplate = readTabFormMergedWithCommon('baseplate');
+    const bin = readTabFormMergedWithCommon('bin');
+    sendToFusion(action, { tab: 'optimizer', form: { layoutParams: params, baseplate, bin } });
+}
+
+document.getElementById('optimizer-drawer-preview').addEventListener('click', () => requestDrawerBuild('drawer_preview'));
+document.getElementById('optimizer-drawer-generate').addEventListener('click', () => requestDrawerBuild('drawer_generate'));
+document.getElementById('optimizer-drawer-clear').addEventListener('click', () => sendToFusion('clear_preview', { tab: 'optimizer' }));
+document.getElementById('optimizer-show-layout').addEventListener('click', updateDrawerSettingsSummary);
+document.getElementById('optimizer-send-baseplate').addEventListener('click', updateDrawerSettingsSummary);
+
+function clearDrawerLayout() {
+    document.getElementById('optimizer-layout-schematic').innerHTML = '';
+    document.getElementById('optimizer-layout-details').textContent = '';
+    document.getElementById('optimizer-tile-panel').classList.add('hidden');
+    selectedTileKey = null;
+    lastDrawerLayout = null;
+    drawMode = false; drawAnchor = null; drawSel = null; selectedCustomIndex = null;
+    updateCustomPanel();
+    syncShowLayoutButton();
+}
+
+// The printer bed bins are printed on: the optional "bin printer bed" if both fields are filled,
+// otherwise the baseplate printer bed. Reference/warning only -- never limits the layout.
+function binPrinterBed() {
+    const num = id => parseFloat(document.getElementById(id).value);
+    const bw = num('optimizer.binBedWidth'), bd = num('optimizer.binBedDepth');
+    if (bw > 0 && bd > 0) return { w: bw, d: bd, separate: true };
+    return { w: num('optimizer.bedWidth'), d: num('optimizer.bedDepth'), separate: false };
+}
+
+// A footprint fits the bed if it fits either way round (the slicer can rotate the part).
+function fitsBed(wMm, dMm, bed) {
+    return (wMm <= bed.w + 1e-6 && dMm <= bed.d + 1e-6) || (wMm <= bed.d + 1e-6 && dMm <= bed.w + 1e-6);
+}
+
+function renderDrawerLayout(layout) {
+    lastDrawerLayout = layout;
+    // A refreshed layout can invalidate a selection (tiles or bins moved/changed): drop dangling ones.
+    if (selectedCustomIndex !== null && !layout.bins.some(b => b.customIndex === selectedCustomIndex)) selectedCustomIndex = null;
+    if (drawSel && !layout.customGrid) { drawSel = null; drawAnchor = null; }
+    const W = layout.totalWidthMm, D = layout.totalDepthMm;
+    const binBed = binPrinterBed();
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${D}`);
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `Drawer layout: ${layout.cols} by ${layout.rows} baseplate tiles, ${layout.bins.length} bins`);
+    const rect = (x, y, w, h, attrs) => {
+        // Front of the drawer (y = 0) is drawn at the bottom, matching Fusion's top view.
+        const r = document.createElementNS(NS, 'rect');
+        r.setAttribute('x', x);
+        r.setAttribute('y', D - y - h);
+        r.setAttribute('width', w);
+        r.setAttribute('height', h);
+        Object.entries(attrs).forEach(([k, v]) => r.setAttribute(k, v));
+        return r;
+    };
+    const stroke = Math.max(W, D) / 300;
+    layout.tiles.forEach(t => svg.appendChild(rect(t.xMm, t.yMm, t.widthMm, t.depthMm,
+        { fill: 'none', stroke: 'var(--text-main)', 'stroke-width': stroke * 2, 'stroke-dasharray': `${stroke * 6} ${stroke * 3}` })));
+    // Bins too big for the bin printer bed are outlined in the danger color (a warning, not a block).
+    const oversized = layout.bins.filter(b => binBed.w > 0 && binBed.d > 0 && !fitsBed(b.widthMm, b.depthMm, binBed));
+    layout.bins.forEach(b => {
+        const tooBig = oversized.includes(b);
+        svg.appendChild(rect(b.xMm, b.yMm, b.widthMm, b.depthMm, {
+            fill: tooBig ? 'var(--text-danger)' : 'var(--btn-primary)',
+            'fill-opacity': tooBig ? 0.35 : 0.45,
+            stroke: tooBig ? 'var(--text-danger)' : 'var(--btn-primary)',
+            'stroke-width': tooBig ? stroke * 2 : stroke,
+        }));
+    });
+    // Transparent click targets on top: select a tile to give it its own bin fill. A tile with
+    // custom settings gets a heavier outline; the selected tile gets a focus-ring colored one.
+    if (!layout.customGrid) layout.tiles.forEach(t => {
+        const custom = !!tileBinSettings[t.key];
+        const selected = t.key === selectedTileKey;
+        const hit = rect(t.xMm, t.yMm, t.widthMm, t.depthMm, {
+            fill: selected ? 'var(--focus-ring)' : 'transparent',
+            'fill-opacity': selected ? 0.18 : 0,
+            stroke: selected || custom ? 'var(--focus-ring)' : 'none',
+            'stroke-width': stroke * 3,
+            cursor: 'pointer',
+        });
+        hit.addEventListener('click', () => {
+            selectedTileKey = t.key;
+            showTilePanel();
+            renderDrawerLayout(layout);
+        });
+        const title = document.createElementNS(NS, 'title');
+        title.textContent = `Tile ${t.col + 1}, ${t.row + 1}: click to set its bin fill`;
+        hit.appendChild(title);
+        svg.appendChild(hit);
+    });
+
+    // Hand-drawn bins live on ONE cell grid for the whole drawer (so bins can cross baseplate tile
+    // seams). Grid geometry: one column per full cell plus, if the drawer has a half strip, one extra
+    // half-width last column/row; padding only exists at the outer edges (originXMm/originYMm).
+    const grid = layout.customGrid;
+    if (grid) {
+        const pitch = layout.pitchMm;
+        const fullCols = grid.cols - (grid.hasHalfX ? 1 : 0);
+        const fullRows = grid.rows - (grid.hasHalfY ? 1 : 0);
+        const gx = i => grid.originXMm + i * pitch;
+        const gy = j => grid.originYMm + j * pitch;
+        const gw = i => (i < fullCols ? pitch : pitch / 2);
+        const gh = j => (j < fullRows ? pitch : pitch / 2);
+        const spanW = (a, b) => (b - a + 1) * pitch - (b >= fullCols ? pitch / 2 : 0);
+        const spanH = (a, b) => (b - a + 1) * pitch - (b >= fullRows ? pitch / 2 : 0);
+        grid.uncovered.forEach(c => svg.appendChild(rect(gx(c.col), gy(c.row), gw(c.col), gh(c.row), {
+            fill: 'var(--text-sub)', 'fill-opacity': 0.15, stroke: 'var(--text-sub)',
+            'stroke-width': stroke * 0.6, 'stroke-dasharray': `${stroke * 2} ${stroke * 2}`,
+        })));
+        if (drawMode) {
+            for (let j = 0; j < grid.rows; j++) {
+                for (let i = 0; i < grid.cols; i++) {
+                    const cell = rect(gx(i), gy(j), gw(i), gh(j), {
+                        fill: 'transparent', stroke: 'var(--border-color)', 'stroke-width': stroke * 0.4, cursor: 'crosshair',
+                    });
+                    cell.addEventListener('click', () => onDrawCellClick(i, j));
+                    svg.appendChild(cell);
+                }
+            }
+        } else {
+            layout.bins.filter(b => b.customIndex !== undefined).forEach(b => {
+                const picked = b.customIndex === selectedCustomIndex;
+                const hit = rect(b.xMm, b.yMm, b.widthMm, b.depthMm, {
+                    fill: picked ? 'var(--focus-ring)' : 'transparent', 'fill-opacity': picked ? 0.3 : 0,
+                    stroke: picked ? 'var(--focus-ring)' : 'none', 'stroke-width': stroke * 3, cursor: 'pointer',
+                });
+                hit.addEventListener('click', () => {
+                    selectedCustomIndex = b.customIndex;
+                    updateCustomPanel();
+                    renderDrawerLayout(layout);
+                });
+                svg.appendChild(hit);
+            });
+        }
+        if (drawSel) {
+            svg.appendChild(rect(gx(drawSel.x0), gy(drawSel.y0), spanW(drawSel.x0, drawSel.x1), spanH(drawSel.y0, drawSel.y1), {
+                fill: 'var(--focus-ring)', 'fill-opacity': 0.35, stroke: 'var(--focus-ring)',
+                'stroke-width': stroke * 3, 'pointer-events': 'none',
+            }));
+        }
+    }
+    const holder = document.getElementById('optimizer-layout-schematic');
+    holder.innerHTML = '';
+    holder.appendChild(svg);
+
+    const lines = [`${layout.cols} x ${layout.rows} baseplate tiles, ${layout.bins.length} bins, ${layout.totalWidthMm} x ${layout.totalDepthMm} mm. Dashed = baseplate tile, filled = bin. Front is at the bottom.`];
+    layout.tiles.forEach((t, i) => lines.push(
+        `Tile ${i + 1}: ${t.plateWidth}${t.hasHalfRight ? '+½' : ''} x ${t.plateLength}${t.hasHalfBack ? '+½' : ''} cells, ${t.widthMm} x ${t.depthMm} mm`));
+    // Reference: how the biggest bin compares with the printer bed it will be printed on.
+    if (layout.bins.length && binBed.w > 0 && binBed.d > 0) {
+        const biggest = layout.bins.reduce((a, b) => (b.widthMm * b.depthMm > a.widthMm * a.depthMm ? b : a));
+        lines.push(`Largest bin: ${biggest.widthMm} x ${biggest.depthMm} mm. ` +
+            `${binBed.separate ? 'Bin printer bed' : 'Printer bed'}: ${binBed.w} x ${binBed.d} mm.`);
+        if (oversized.length) {
+            lines.push(`Warning: ${oversized.length} of ${layout.bins.length} bins are larger than the ` +
+                `${binBed.separate ? 'bin printer bed' : 'printer bed'} (outlined in red). This is only a warning; they will still be generated.`);
+        }
+    }
+    (layout.warnings || []).forEach(w => lines.push(`Warning: ${w}`));
+    const details = document.getElementById('optimizer-layout-details');
+    details.textContent = '';
+    lines.forEach(l => { const p = document.createElement('div'); p.textContent = l; details.appendChild(p); });
+    updateCustomPanel();
+    syncShowLayoutButton();
+}
+
 function renderOptimizerResults(payload) {
+    clearDrawerLayout();
     const results = document.getElementById('optimizer-results');
     if (payload.optimalSizeMm === null || payload.optimalSizeMm === undefined) {
         results.classList.add('hidden');
+        lastOptimizerResult = null;
         return;
     }
+    lastOptimizerResult = payload;
     results.classList.remove('hidden');
+
+    const openingSelect = document.getElementById('optimizer-opening');
+    const previousOpening = openingSelect.value;
+    openingSelect.innerHTML = '';
+    pairOpenings(payload.items || []).forEach((o, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = o.description || `Opening ${i + 1}`;
+        openingSelect.appendChild(opt);
+    });
+    if (previousOpening && openingSelect.querySelector(`option[value="${previousOpening}"]`)) {
+        openingSelect.value = previousOpening;
+    }
+    updateOptimizerLayoutSummary();
 
     document.getElementById('optimizer-results-headline').textContent =
         `Optimal grid size: ${payload.optimalSizeMm} mm — ${formatWasteSummary(payload, payload.priority)}`;
@@ -792,7 +1414,7 @@ function renderOptimizerResults(payload) {
     (payload.items || []).forEach(item => tbody.appendChild(renderFitRow(item)));
 
     const standardSection = document.getElementById('optimizer-standard-section');
-    if (payload.standard) {
+    if (payload.standard && payload.showStandard) {
         standardSection.classList.remove('hidden');
         document.getElementById('optimizer-standard-headline').textContent =
             `Standard ${payload.standard.sizeMm} mm grid — ${formatWasteSummary(payload.standard, payload.priority)}`;
@@ -939,7 +1561,7 @@ document.querySelectorAll('#common-panel input[id^="common."]').forEach(el => {
 
 // ---- Action buttons ----
 function tabLabel(tab) {
-    return tab === 'bin' ? 'Bin' : tab === 'baseplate' ? 'Baseplate' : tab;
+    return tab === 'bin' ? 'Bin' : tab === 'baseplate' ? 'Baseplate' : tab === 'optimizer' ? 'Grid Optimizer drawer' : tab;
 }
 
 // Update Preview/Generate replace the single shared preview slot outright -- if it
@@ -1442,6 +2064,20 @@ function _onOff(id, extra) { return _on(id) ? (extra ? 'on, ' + extra : 'on') : 
 
 const SECTION_SUMMARIES = {
     'common-panel': () => `${_val('common.baseWidthUnit')}\u00d7${_val('common.baseLengthUnit')} mm grid, clr ${_val('common.xyClearance')}, magnet \u00d8${_val('common.magnetDiameter')}\u00d7${_val('common.magnetDepth')}`,
+    'tab-bin:Basic size': () => `${_val('bin.heightUnit')} mm height unit`,
+    'tab-bin:Dimensions': () => {
+        const half = ['Left', 'Right', 'Front', 'Back'].some(s => _on('bin.hasHalf' + s));
+        return `${_val('bin.binWidth')}×${_val('bin.binLength')}×${_val('bin.binHeight')}` + (half ? ', half edges' : '');
+    },
+    'tab-bin:Body': () => {
+        if (!_on('bin.generateBody')) return 'no body';
+        return _val('bin.binType').toLowerCase() + (_on('bin.withLip') ? ', lip' : ', no lip');
+    },
+    'tab-baseplate:Main dimensions': () => {
+        const half = ['Left', 'Right', 'Front', 'Back'].some(s => _on('baseplate.hasHalf' + s));
+        return `${_val('baseplate.plateWidth')}×${_val('baseplate.plateLength')}` + (half ? ', half edges' : '');
+    },
+    'tab-baseplate:Features': () => _val('baseplate.plateType'),
     'tab-bin:Compartments': () => _val('bin.compartmentsGridType') === 'Custom'
         ? 'custom' : `${_val('bin.compartmentsGridWidth')}\u00d7${_val('bin.compartmentsGridLength')}`,
     'tab-bin:Scoop': () => _onOff('bin.hasScoop', _val('bin.scoopMaxRadius') + ' mm'),

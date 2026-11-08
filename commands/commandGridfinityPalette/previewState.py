@@ -109,6 +109,17 @@ def clear_preview(force: bool = True):
         futil.log(f'GridfinityPalette previewState: failed to clear preview, {err}')
 
 
+def release_preview():
+    """Stops tracking the current preview WITHOUT touching the component -- used when a preview
+    is promoted to a finished component, so it is no longer treated as a clearable preview."""
+    global _preview_tab, _preview_occurrence_token, _preview_feature_tokens, _preview_is_adopted, _preview_original_name
+    _preview_tab = None
+    _preview_occurrence_token = None
+    _preview_feature_tokens = []
+    _preview_is_adopted = False
+    _preview_original_name = None
+
+
 def has_preview() -> bool:
     return _preview_occurrence_token is not None or bool(_preview_feature_tokens)
 

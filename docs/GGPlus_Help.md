@@ -2,11 +2,11 @@
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
-Version: 1.6.0.0
+Version: 1.7.0.0
 
 By Ed Johnson
 
-August, 2026
+November, 2026
 
 ---
 
@@ -41,6 +41,7 @@ If you’ve used the original GridfinityGenerator, here’s what’s different:E
 | Saved presets | None | Named, savable/loadable configurations per tab |
 | Baseplate types | Light, Skeletonized, Full | Adds **Stackable** — a fourth type designed to physically stack |
 | Grid sizing | Manual guesswork for custom (non-42mm) grids | **Grid Optimizer** tab recommends an optimal custom pitch from your real drawer/cabinet measurements |
+| Whole-drawer layout | Not available | **Use this layout** (Grid Optimizer) tiles baseplates to your printer bed and builds a full drawer of baseplates and bins as one component |
 | Appearance | Fixed light theme | **Themes** tab — built-in themes, OS dark-mode following, and importable custom themes (single `.theme.json` or a multi-theme `style.css` bundle) |
 | Window state | Resets every session | Palette size/position/docking remembered across sessions |
 
@@ -119,6 +120,17 @@ If you’re building a custom (non-standard-42mm) grid to fit a specific drawer 
 4. Click **Calculate** to see the recommended grid size, the total leftover space, and a per-dimension breakdown, with an optional side-by-side comparison against the standard 42mm grid.
 
 Click any column heading (**Description**, **Width**, or **Depth**) to sort the dimensions table by that column, click again to reverse the order — handy for scanning a long list. Newly added dimensions slot into the current sort automatically. The order you leave the table in is what gets saved when you save or update a set.
+
+#### Laying out a whole drawer (Use this layout)
+
+After you Calculate, **Use this layout** turns one opening at a time into a complete set of baseplates and bins.
+
+1. **Grid to use:** the calculated optimum, the standard 42 mm grid, or the **Common Settings grid unit** (handy when you just want to set a grid size and build a drawer; the Common base width and length units must be equal). Pick the opening to lay out.
+2. **Printer bed:** enter the bed width and depth. The baseplate is split into the fewest tiles that fit; half-unit edges go only on outer tiles and leftover space becomes outer padding. The bed is remembered between sessions and saved with each set. An optional **bin printer bed** adds a reference line and a warning for oversized bins (never a limit).
+3. **Bin fill:** one bin per tile, **uniform** bins up to a max size, a **mixed-size list** (e.g. `2x2, 1x1`, always topped up with 1x1), or **Draw bins by hand**. Click **Show tiled layout** to see the schematic (the button becomes **Hide tiled layout**, which clears the view and any hand-drawn bins). With a per-tile panel you can override the fill for one tile. For hand-drawing, click **Add a bin**, click two corner cells, **Save bin**; bins can cross baseplate boundaries. **Fill empty cells with 1x1 bins** completes a layout.
+4. **Build:** **Update Preview** builds the drawer for review and **Generate drawer** finalizes it, as one nested component and one Undo step, with a progress dialog you can cancel. The drawer uses the current Baseplate and Bin tab settings (Light, Full or Skeletonized baseplates; Stackable is not supported). The pieces of a drawer can't be re-opened with Edit Active Component; rebuild the drawer instead.
+
+**Send opening to Baseplate tab** fills the Baseplate form for a single opening instead (forced to Light, stack count 1).
 
 Dimension lists can be saved as named, reloadable sets (e.g. “Kitchen Drawers,” “Workbench Cabinet”) just like Bin and Baseplate configurations.
 
@@ -250,6 +262,7 @@ A condensed summary of major milestones:
 - **Font controls now reach every element (v1.4.1)** — Font Family/Base Font Size on the Themes tab previously only scaled body text; buttons, dropdowns, and text fields silently kept the browser's default UI font. Fixed fleet-wide with an explicit font inheritance rule for form controls.
 - **Multi-monitor palette visibility fix (v1.4.2)** — Fusion won't draw a floating palette outside the display its own main window occupies, so a palette last parked on a second monitor could go silently invisible when Fusion was later opened on a different one. The saved position is now checked against Fusion's actual display on open and remapped onto it at the same relative spot when they don't match. A new standalone `PaletteDisplayCheck` script reports monitor layout and the saved-position verdict for troubleshooting.
 - **Calmer first launch, remembered sections, tooltips, and UI polish (v1.5)** — most sections start collapsed with live one-line summaries in their headers, open/closed state is remembered, Expand all / Collapse all and auto-open-on-error were added, ⓘ tooltips explain grid units vs. millimetres (and the Grid Optimizer’s settings), Configurations moved to the top of the Bin and Baseplate tabs, Bin gained an Advanced section, dependent fields gray out until their checkbox is on, checkboxes are left-aligned, and baseplate padding labels now use Left/Back/Right/Front.
+- **Whole-drawer layouts, instant Generate and scoop fixes (v1.7)** — the Grid Optimizer can lay out and build a full drawer of baseplates (tiled to your printer bed) and bins (auto-filled or hand-drawn, crossing seams) as one nested component; Generate now just finalizes an unchanged preview instead of rebuilding it; more collapsed-section summaries; and left/right scoops on narrow bins no longer fail.
 
 ---
 

@@ -1,9 +1,18 @@
 {
  "minSize": 4,
- "maxSize": 7.5,
- "allowHalfBins": false,
+ "maxSize": 7,
+ "allowHalfBins": true,
  "priority": "width",
  "compareStandard": true,
+ "layoutGrid": "optimized",
+ "bedWidth": 23.8,
+ "bedDepth": 22.8,
+ "binBedWidth": null,
+ "binBedDepth": null,
+ "binStrategy": "uniform",
+ "binPalette": "2x2, 1x1",
+ "maxBinCellsWidth": 1,
+ "maxBinCellsDepth": 2,
  "items": [
   {
    "description": "18\" Kitchen",
@@ -35,5 +44,7 @@
    "width": 78.25,
    "depth": 50.2
   }
- ]
+ ],
+ "tileBinSettings": {},
+ "customBins": []
 }

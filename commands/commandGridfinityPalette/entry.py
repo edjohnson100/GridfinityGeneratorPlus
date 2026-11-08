@@ -14,6 +14,7 @@ from . import generation
 from . import validation
 from . import previewState
 from . import optimizer
+from . import drawerLayout
 from .optimizerInputState import OptimizerInputState
 
 app = adsk.core.Application.get()
@@ -44,7 +45,7 @@ CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'c
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
 
 PALETTE_TITLE = 'GridfinityGeneratorPlus'
-PALETTE_VERSION = 41
+PALETTE_VERSION = 58
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Local list of event handlers for the command button.
@@ -123,6 +124,17 @@ DEFAULT_OPTIMIZER = {
     'allowHalfBins': True,
     'compareStandard': False,
     'priority': 'balanced',
+    'layoutGrid': 'optimized',
+    'bedWidth': 25.6,
+    'bedDepth': 25.6,
+    'binBedWidth': None,
+    'binBedDepth': None,
+    'binStrategy': 'perTile',
+    'maxBinCellsWidth': 3,
+    'maxBinCellsDepth': 3,
+    'tileBinSettings': {},
+    'binPalette': '2x2, 1x1',
+    'customBins': [],
     'items': [],
 }
 
@@ -516,12 +528,25 @@ def _set_active_config_name(tab: str, name):
     configUtils.dumpJsonConfig(UI_DEFAULTS_CONFIG_PATH, data)
 
 
+def _tab_base_defaults(tab: str) -> dict:
+    """Built-in defaults for a tab, with the Optimizer's printer bed size replaced by the last one
+    the user typed on this machine (appConfig 'printerBed', cm). Sits *under* saved sets: a set that
+    stores its own bed size still wins, so sets can target different printers."""
+    form = dict(DEFAULTS_BY_TAB[tab])
+    if tab == 'optimizer':
+        bed = appConfig.load().get('printerBed') or {}
+        for key in ('bedWidth', 'bedDepth', 'binBedWidth', 'binBedDepth'):
+            if isinstance(bed.get(key), (int, float)) and bed[key] > 0:
+                form[key] = bed[key]
+    return form
+
+
 def _get_tab_form(tab: str) -> dict:
     """The form shown when the palette opens: the active saved config if one is
     set (merged over the hardcoded defaults, so older configs missing newer
     fields still work), otherwise the hardcoded Gridfinity-standard defaults."""
     active = _get_active_config_name(tab)
-    form = dict(DEFAULTS_BY_TAB[tab])
+    form = _tab_base_defaults(tab)
     if active:
         saved = configUtils.readJsonConfig(_config_path(tab, active))
         if saved is not None:
@@ -550,6 +575,22 @@ def _send_config_list(palette: adsk.core.Palette, tab: str):
         'configs': _list_configs(tab),
         'activeConfig': _get_active_config_name(tab),
     })
+
+
+def _promote_matching_preview(previewTab: str, kind: str, form: dict) -> bool:
+    """Generate shortcut: if the live, freshly built (not adopted) preview was made from exactly
+    this form, just finalize it instead of rebuilding. Any mismatch falls back to a full build."""
+    try:
+        if (not previewState.has_preview() or previewState.get_preview_adopted()
+                or previewState.get_preview_tab() != previewTab):
+            return False
+        token = previewState.get_preview_occurrence_token()
+        if generation.promote_preview(token, kind, form):
+            previewState.release_preview()
+            return True
+    except Exception:
+        app.log(f'{CMD_NAME} promote preview failed, rebuilding instead:\n{traceback.format_exc()}')
+    return False
 
 
 class HTMLEventHandler(adsk.core.HTMLEventHandler):
@@ -621,6 +662,41 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
 
             elif action == 'optimize':
                 self._handle_optimize(palette, form)
+
+            elif action == 'update_printer_bed':
+                # Remember the last-typed printer bed (cm) for sessions that start without a saved set.
+                valid = lambda k: isinstance(data.get(k), (int, float)) and data[k] > 0
+                if valid('bedWidth') and valid('bedDepth'):
+                    bed = {'bedWidth': float(data['bedWidth']), 'bedDepth': float(data['bedDepth'])}
+                    # the optional bin printer bed is remembered only as a complete pair (blank = same bed)
+                    if valid('binBedWidth') and valid('binBedDepth'):
+                        bed['binBedWidth'] = float(data['binBedWidth'])
+                        bed['binBedDepth'] = float(data['binBedDepth'])
+                    appConfig.update({'printerBed': bed})
+
+            elif action in ('drawer_preview', 'drawer_generate'):
+                self._handle_drawer(palette, form, is_preview=(action == 'drawer_preview'))
+
+            elif action == 'layout':
+                # Pure calculation (no Fusion geometry): tiles + bins for one opening.
+                try:
+                    result = drawerLayout.plan_drawer_layout(
+                        pitch_mm=float(data['pitchMm']),
+                        width_fit=data['widthFit'],
+                        depth_fit=data['depthFit'],
+                        bed_width_mm=float(data['bedWidthMm']),
+                        bed_depth_mm=float(data['bedDepthMm']),
+                        bin_strategy=data.get('binStrategy', drawerLayout.BIN_STRATEGY_PER_TILE),
+                        max_bin_cells_width=int(data.get('maxBinCellsWidth', 3)),
+                        max_bin_cells_depth=int(data.get('maxBinCellsDepth', 3)),
+                        tile_bin_settings=data.get('tileBinSettings'),
+                        bin_palette=data.get('binPalette', ''),
+                        custom_bins=data.get('customBins'),
+                    )
+                    _send(palette, 'layout_result', result)
+                except Exception:
+                    app.log(f'{CMD_NAME} layout failed:\n{traceback.format_exc()}')
+                    _send(palette, 'notification', {'type': 'error', 'message': getErrorMessage()})
 
             elif action == 'validate':
                 result = VALIDATE_BY_TAB[tab](form)
@@ -773,7 +849,7 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
         if saved is None:
             _send(palette, 'notification', {'type': 'error', 'message': f'Config "{name}" not found'})
             return
-        form = dict(DEFAULTS_BY_TAB[tab])
+        form = _tab_base_defaults(tab)
         form.update(saved)
         _set_active_config_name(tab, name)
         _send(palette, 'set_state', {'tab': tab, 'form': form, 'source': 'load_config'})
@@ -851,6 +927,62 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
 
         _run_grouped(work, f'GGPlus Preview {tab.capitalize()}')
 
+    def _handle_drawer(self, palette: adsk.core.Palette, form: dict, is_preview: bool):
+        """Builds the whole tiled drawer (all baseplate tiles + bins) as one nested component.
+        form = {'layoutParams': ..., 'baseplate': ..., 'bin': ...} -- see generation.build_drawer.
+        One Undo entry; occupies the single preview slot (tab 'optimizer') when previewing."""
+        # Validate the pieces the drawer is made from, so errors point at a real field.
+        for tabName, validator in (('baseplate', validation.validate_baseplate), ('bin', validation.validate_bin)):
+            result = validator(form[tabName])
+            if not result['valid']:
+                _send(palette, 'notification', {
+                    'type': 'error',
+                    'message': f'Fix the highlighted fields on the {tabName.capitalize()} tab first',
+                })
+                return
+        if form['baseplate'].get('plateType') == generation.BASEPLATE_TYPE_STACKABLE:
+            _send(palette, 'notification', {
+                'type': 'error',
+                'message': 'Drawer layouts do not support Stackable baseplates. Set the Baseplate tab type to Light, Full or Skeletonized.',
+            })
+            return
+
+        safe, message = _ensure_safe_to_mutate()
+        if not safe:
+            _send(palette, 'notification', {'type': 'error', 'message': message})
+            return
+
+        if not _require_hybrid_design_intent():
+            return
+
+        def work():
+            try:
+                if not is_preview and _promote_matching_preview('optimizer', 'drawer', form):
+                    _send(palette, 'preview_status', {'tab': 'optimizer', 'active': False})
+                    _send(palette, 'notification', {'type': 'success', 'message': 'Generated (preview finalized)'})
+                    return
+                previewState.clear_preview()
+                occurrence = generation.create_and_build('drawer', form, is_preview=is_preview)
+                if is_preview:
+                    previewState.track_preview('optimizer', occurrence)
+                    _send(palette, 'preview_status', {'tab': 'optimizer', 'active': True, 'adopted': False})
+                else:
+                    _send(palette, 'preview_status', {'tab': 'optimizer', 'active': False})
+                    _send(palette, 'notification', {'type': 'success', 'message': 'Generated'})
+            except generation.DrawerBuildCancelled:
+                _send(palette, 'preview_status', {'tab': 'optimizer', 'active': False})
+                _send(palette, 'notification', {'type': 'info', 'message': 'Drawer build cancelled'})
+            except UnsupportedDesignTypeException:
+                _send(palette, 'notification', {
+                    'type': 'error',
+                    'message': 'Design type is unsupported. Please enable the timeline feature to proceed.',
+                })
+            except Exception:
+                app.log(f'{CMD_NAME} drawer build failed:\n{traceback.format_exc()}')
+                _send(palette, 'notification', {'type': 'error', 'message': getErrorMessage()})
+
+        _run_grouped(work, 'GGPlus Drawer Preview' if is_preview else 'GGPlus Drawer Generate')
+
     def _handle_generate(self, palette: adsk.core.Palette, tab: str, form: dict):
         result = VALIDATE_BY_TAB[tab](form)
         if not result['valid']:
@@ -871,6 +1003,10 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
 
         def work():
             try:
+                if _promote_matching_preview(tab, tab, form):
+                    _send(palette, 'preview_status', {'tab': tab, 'active': False})
+                    _send(palette, 'notification', {'type': 'success', 'message': 'Generated (preview finalized)'})
+                    return
                 previewState.clear_preview()
                 generation.create_and_build(tab, form)
                 _send(palette, 'preview_status', {'tab': tab, 'active': False})
@@ -907,9 +1043,12 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                 min_size_mm=round(state.minSize * 10),
                 max_size_mm=round(state.maxSize * 10),
                 allow_half_bins=state.allowHalfBins,
-                compare_standard=state.compareStandard,
+                # Always computed: the user can pick the standard layout as the one to apply,
+                # even with the comparison display turned off.
+                compare_standard=True,
                 priority=state.priority,
             )
+            optimizerResult['showStandard'] = state.compareStandard
             _send(palette, 'optimizer_result', optimizerResult)
         except Exception:
             app.log(f'{CMD_NAME} optimize failed:\n{traceback.format_exc()}')
@@ -946,6 +1085,12 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                 return
 
             kind = kindAttr.value
+            if kind == 'drawer':
+                _send(palette, 'notification', {
+                    'type': 'error',
+                    'message': 'A whole-drawer layout is not edited this way. Change the layout on the Grid Optimizer tab and use Update Preview (drawer) / Generate drawer.',
+                })
+                return
             if kind not in VALIDATE_BY_TAB:
                 _send(palette, 'notification', {'type': 'error', 'message': f'Unknown component kind "{kind}".'})
                 return
@@ -962,6 +1107,20 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                 return
             occurrence = occurrences.item(0)
             componentName = comp.name
+
+            # Bins/tiles inside a generated drawer are positioned by the drawer layout; editing one
+            # here would rebuild it at the origin, away from its slot. Edit the layout instead.
+            context = occurrence.assemblyContext
+            while context is not None:
+                parentKind = context.component.attributes.itemByName(
+                    generation.GENERATED_FORM_ATTR_GROUP, generation.GENERATED_FORM_ATTR_KIND)
+                if parentKind is not None and parentKind.value == 'drawer':
+                    _send(palette, 'notification', {
+                        'type': 'error',
+                        'message': f'"{componentName}" is part of a generated drawer layout, so it cannot be edited on its own here. Change the layout on the Grid Optimizer tab and rebuild the drawer.',
+                    })
+                    return
+                context = context.assemblyContext
 
             # This is the live, not-yet-finalized preview itself (Update Preview was
             # clicked, then the user activated the PREVIEW_ component and hit Edit

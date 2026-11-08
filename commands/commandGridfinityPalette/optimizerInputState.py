@@ -16,6 +16,7 @@ class OptimizerInputState:
     compareStandard: bool
     priority: str
     items: list
+    layoutGrid: str = 'optimized'
 
     @staticmethod
     def from_form(form: dict) -> 'OptimizerInputState':
@@ -34,4 +35,5 @@ class OptimizerInputState:
             compareStandard=bool(form['compareStandard']),
             priority=form.get('priority', 'balanced'),
             items=items,
+            layoutGrid=form.get('layoutGrid', 'optimized'),
         )

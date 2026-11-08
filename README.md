@@ -1,6 +1,6 @@
 # GridfinityGeneratorPlus
 
-Version: 1.6.0.0
+Version: 1.7.0.0
 
 By Ed Johnson (Making With An EdJ)
 
@@ -22,6 +22,21 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 4: Stackable baseplates.** A fourth baseplate type, made symmetric top-to-bottom so it can be printed and physically stacked with no overhang, with configurable interface layers between plates.
 * **Feature 5: Themes tab.** Customize the palette's appearance — built-in themes, automatic OS dark-mode following, and import/export of your own custom themes as either a single `.theme.json` file or a multi-theme `style.css` bundle.
 * **Feature 6: Half-unit grid support & DXF export for laser cutting.** Add a half-unit-wide strip to any edge (Left/Right/Front/Back) of a bin or baseplate — where two checked edges meet at a corner, that cell automatically becomes quarter-size, no extra configuration needed. Baseplates can also generate a DXF-ready sketch for laser-cut fabrication.
+
+* **Feature 7: Whole-drawer layouts.** From a Grid Optimizer result, lay out and build a complete drawer in one step: baseplates auto-tiled to your printer bed, plus bins auto-filled or drawn by hand, all as one nested component.
+
+---
+## ✨ What's New in v1.7
+
+* **Whole-drawer layouts (Grid Optimizer tab).** After you Calculate, the new **Use this layout** section turns an opening into a full set of baseplates and bins:
+  * **Choose the grid:** the calculated optimum, the standard 42 mm grid, or the **Common Settings grid unit**.
+  * **Baseplates are tiled to your printer bed.** Enter the bed size (remembered, and saved with each set so different printers can have different beds); half-unit edges go only on the outer tiles and leftover space becomes outer padding. A schematic shows the tiles and bins.
+  * **Bins:** one per tile, uniform N×M, a mixed-size list (e.g. `2x2, 1x1`), or **draw them by hand** on a drawer-wide grid, where bins can cross baseplate seams. An optional bin printer bed shows a reference and a warning for oversized bins, never a restriction.
+  * **Update Preview / Generate drawer** builds everything as one nested component with a progress dialog (cancelable), the viewport framed on the whole drawer, parts appearing as they are made, sketches hidden, and one Undo step. Identical pieces are built once and re-placed.
+  * **Send opening to Baseplate tab** and **Apply grid size to Common** are also available. Drawers use Light, Full or Skeletonized baseplates (Stackable is not supported).
+* **Generate promotes an unchanged preview.** If the live preview was built from exactly the current settings, Generate just finalizes it, with no rebuild and no waiting.
+* **Collapsed-section summaries** on Bin (Basic size, Dimensions, Body) and Baseplate (Main dimensions, Features).
+* **Scoop fixes:** left/right scoops on narrow (1u or half-width) bins no longer fail, scoop radius is limited to what fits in the bin's width/length, and the unavoidable skipped back-edge rounding no longer logs errors.
 
 ---
 ## ✨ What's New in v1.6

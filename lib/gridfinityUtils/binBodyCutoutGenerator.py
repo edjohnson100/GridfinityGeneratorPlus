@@ -74,6 +74,15 @@ def createGridfinityBinBodyCutout(
         # All selected sides are filleted in a single feature so corners blend.
         scoopEdges = getInnerCutoutScoopEdges(innerCutoutBody, scoopSides)
         scoopMaxRadius = min(input.scoopMaxRadius, input.height) if min(input.scoopMaxRadius, input.height) >= input.filletRadius else input.filletRadius
+        # A scoop can't be wider than the cutout it is cut into. Two opposite scoops share the
+        # span, so each gets under half of it (otherwise they overlap and consume the floor edge
+        # that the rest of the build needs, e.g. on 1u or half-unit wide bins with left+right scoops).
+        for sides, span in ((('left', 'right'), input.width), (('front', 'back'), input.length)):
+            chosen = [s for s in sides if s in scoopSides]
+            if len(chosen) == 2:
+                scoopMaxRadius = min(scoopMaxRadius, span * 0.45)
+            elif len(chosen) == 1:
+                scoopMaxRadius = min(scoopMaxRadius, span * 0.95)
         filletUtils.createFillet(
             scoopEdges,
             scoopMaxRadius,
@@ -92,18 +101,25 @@ def createGridfinityBinBodyCutout(
             targetComponent
         )
     # The back bottom edge is already rounded when the back is scooped.
-    if input.hasBottomFillet and 'back' not in scoopSides:
+    # With a left/right scoop the back wall's bottom edge blends tangentially into the scoop curves
+    # and the already-filleted corners, so Fusion always rejects it (FILLET_NO_EDGE_FOUND): skip it
+    # up front rather than attempt a fillet that is known to fail.
+    if input.hasBottomFillet and 'back' not in scoopSides and not ({'left', 'right'} & scoopSides):
         # recalculate faces after fillet
         backFaces = [face for face in innerCutoutBody.faces if faceUtils.isYNormal(face)]
         if backFaces:
             innerCutoputScoopOppositeFace = max(backFaces, key=lambda x: x.boundingBox.minPoint.y)
             scoopOppositeEdge = faceUtils.getBottomHorizontalEdge(innerCutoputScoopOppositeFace.edges)
 
-            filletUtils.createFillet(
-                [scoopOppositeEdge],
-                input.filletRadius,
-                True,
-                targetComponent
-            )
+            # Cosmetic only: if the scoops left no clean edge to round, keep the bin rather than fail.
+            try:
+                filletUtils.createFillet(
+                    [scoopOppositeEdge],
+                    input.filletRadius,
+                    True,
+                    targetComponent
+                )
+            except RuntimeError:
+                futil.log('bin cutout: skipped back bottom fillet (Fusion rejected it)')
 
     return innerCutoutBody

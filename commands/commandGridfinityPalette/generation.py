@@ -1,5 +1,7 @@
 import adsk.core, adsk.fusion
 import json
+import time
+import traceback
 
 from ... import config
 from ...lib import fusion360utils as futil
@@ -20,6 +22,7 @@ from ...lib.gridfinityUtils.baseplateGenerator import createGridfinityBaseplate
 from ...lib.gridfinityUtils.baseplateGeneratorInput import BaseplateGeneratorInput
 from ...lib.ui.unsupportedDesignTypeException import UnsupportedDesignTypeException
 
+from . import drawerLayout
 from .binInputState import BinInputState
 from .baseplateInputState import BaseplateInputState
 
@@ -89,8 +92,26 @@ def create_and_build(kind: str, form: dict, is_preview: bool = False):
             newCmpOcc.component.name = name
             newCmpOcc.activate()
         build_baseplate(inputState, component, name)
+    elif kind == 'drawer':
+        if newCmpOcc is None:
+            raise UnsupportedDesignTypeException('Drawer layouts need Hybrid design intent (they are built from nested components)')
+        name = 'Gridfinity drawer'
+        newCmpOcc.component.name = name
+        newCmpOcc.activate()
+        try:
+            build_drawer(form, newCmpOcc)
+        except DrawerBuildCancelled:
+            # Remove the half-built drawer so Cancel leaves the design as it was.
+            try:
+                newCmpOcc.deleteMe()
+            except Exception:
+                futil.log(f'drawer: could not remove cancelled drawer: {traceback.format_exc()}')
+            raise
     else:
         raise ValueError(f'Unknown generator kind: {kind}')
+
+    if newCmpOcc:
+        _hide_sketches(newCmpOcc.component)
 
     if newCmpOcc and is_preview:
         newCmpOcc.component.name = f'{PREVIEW_NAME_PREFIX}{name}'
@@ -108,6 +129,252 @@ def create_and_build(kind: str, form: dict, is_preview: bool = False):
         return newCmpOcc
 
     return [des.timeline.item(i).entity for i in range(originalTimelineCount, des.timeline.count)]
+
+
+def promote_preview(occurrenceToken: str, kind: str, form: dict) -> bool:
+    """If the tracked preview component was built from exactly this `kind` and `form`, finalizes
+    it in place (drops the PREVIEW_ prefix) and returns True, so Generate doesn't have to rebuild
+    geometry that already exists. Returns False (touching nothing) if anything doesn't match."""
+    des = adsk.fusion.Design.cast(app.activeProduct)
+    if des is None or not occurrenceToken:
+        return False
+    entities = des.findEntityByToken(occurrenceToken)
+    if not entities or len(entities) == 0:
+        return False
+    occ = adsk.fusion.Occurrence.cast(entities[0])
+    if occ is None:
+        return False
+    comp = occ.component
+    attrKind = comp.attributes.itemByName(GENERATED_FORM_ATTR_GROUP, GENERATED_FORM_ATTR_KIND)
+    attrForm = comp.attributes.itemByName(GENERATED_FORM_ATTR_GROUP, GENERATED_FORM_ATTR_FORM_JSON)
+    if attrKind is None or attrForm is None or attrKind.value != kind:
+        return False
+    try:
+        # Round-trip the incoming form through JSON so it is compared exactly as it was stored.
+        if json.loads(attrForm.value) != json.loads(json.dumps(form)):
+            return False
+    except Exception:
+        return False
+    if not comp.name.startswith(PREVIEW_NAME_PREFIX):
+        return False
+    comp.name = comp.name[len(PREVIEW_NAME_PREFIX):]
+    return True
+
+
+def _refresh_view():
+    """Asks Fusion to redraw the viewport and process pending UI events, so parts added during a
+    long build appear as they are made instead of all at once at the end. Never fatal."""
+    try:
+        app.activeViewport.refresh()
+    except Exception:
+        pass
+    adsk.doEvents()
+
+
+def _frame_drawer(widthCm: float, depthCm: float):
+    """Centers the viewport on the drawer's footprint (which spans 0..width, 0..depth from the
+    root origin) and zooms so all of it is visible, keeping the user's current view direction.
+    Done once before the first piece is added so the whole drawer stays in frame as it fills in.
+    Never fatal."""
+    try:
+        viewport = app.activeViewport
+        camera = viewport.camera
+        target = adsk.core.Point3D.create(widthCm / 2.0, depthCm / 2.0, 0)
+        direction = camera.eye.vectorTo(camera.target)
+        if direction.length < 1e-9:
+            direction = adsk.core.Vector3D.create(0, 0, -1)
+        direction.normalize()
+        span = max(widthCm, depthCm)
+        # Back the eye off along the current view direction, far enough to see the whole span.
+        back = direction.copy()
+        back.scaleBy(-span * 2.0)
+        eye = target.copy()
+        eye.translateBy(back)
+        camera.isFitView = False
+        camera.target = target
+        camera.eye = eye
+        if camera.cameraType == adsk.core.CameraTypes.OrthographicCameraType:
+            camera.setExtents(span * 1.4, span * 1.4)
+        viewport.camera = camera
+        viewport.refresh()
+    except Exception:
+        futil.log(f'drawer: could not frame the viewport: {traceback.format_exc()}')
+
+
+def _hide_sketches(component: adsk.fusion.Component):
+    """Turns the light bulb off for every sketch in `component` and, recursively, in all the
+    components nested inside it. The generators leave dozens of construction sketches visible,
+    which clutters the canvas once a bin/baseplate/drawer is generated. Only called with a newly
+    created component, so it never touches the user's own sketches. Failures are not fatal."""
+    seen = set()
+
+    def visit(comp):
+        if comp.entityToken in seen:
+            return
+        seen.add(comp.entityToken)
+        for sketch in comp.sketches:
+            try:
+                sketch.isLightBulbOn = False
+            except Exception:
+                futil.log(f'could not hide sketch "{sketch.name}": {traceback.format_exc()}')
+        for occ in comp.occurrences:
+            visit(occ.component)
+
+    visit(component)
+
+
+def _translation(xCm: float, yCm: float) -> adsk.core.Matrix3D:
+    matrix = adsk.core.Matrix3D.create()
+    matrix.translation = adsk.core.Vector3D.create(xCm, yCm, 0)
+    return matrix
+
+
+class DrawerBuildCancelled(Exception):
+    """Raised when the user presses Cancel on the drawer build progress dialog."""
+
+
+def build_drawer(form: dict, parentOcc: adsk.fusion.Occurrence):
+    """Runs _build_drawer behind a progress dialog (Fusion's UI is blocked while it builds, so
+    this is the only feedback the user gets). Raises DrawerBuildCancelled on Cancel."""
+    progress = app.userInterface.createProgressDialog()
+    progress.cancelButtonText = 'Cancel'
+    progress.isBackgroundTranslucencyEnabled = True
+    progress.show('Building Gridfinity drawer', 'Planning layout...', 0, 1, 0)
+    # Give Fusion a moment to actually paint the dialog before the long, blocking build starts.
+    adsk.doEvents()
+    time.sleep(0.4)
+    adsk.doEvents()
+    try:
+        _build_drawer(form, parentOcc, progress)
+    finally:
+        progress.hide()
+
+
+def _build_drawer(form: dict, parentOcc: adsk.fusion.Occurrence, progress):
+    """Builds every baseplate tile and bin of a drawer layout as child components of
+    parentOcc. `form` = {'layoutParams': {...drawerLayout.plan_drawer_layout kwargs...},
+    'baseplate': <full Baseplate tab form incl. common fields, cm>,
+    'bin': <full Bin tab form incl. common fields, cm>}.
+
+    The layout is recomputed here from layoutParams (single source of truth). Each piece is
+    built in its own component with the exact same generator code the Bin/Baseplate tabs use,
+    then positioned by translating its grid-cell origin (baseplates and bins both build around
+    that origin, with padding extending to negative X/Y), so they nest the same way they do when
+    generated separately. Identical pieces are built once and re-placed as extra occurrences.
+    """
+    lp = form['layoutParams']
+    layout = drawerLayout.plan_drawer_layout(
+        pitch_mm=float(lp['pitchMm']), width_fit=lp['widthFit'], depth_fit=lp['depthFit'],
+        bed_width_mm=float(lp['bedWidthMm']), bed_depth_mm=float(lp['bedDepthMm']),
+        bin_strategy=lp.get('binStrategy', drawerLayout.BIN_STRATEGY_PER_TILE),
+        max_bin_cells_width=int(lp.get('maxBinCellsWidth', 3)),
+        max_bin_cells_depth=int(lp.get('maxBinCellsDepth', 3)),
+        tile_bin_settings=lp.get('tileBinSettings'),
+        bin_palette=lp.get('binPalette', ''),
+        custom_bins=lp.get('customBins'),
+    )
+    plateForm = form['baseplate']
+    binForm = form['bin']
+    if plateForm.get('plateType') == BASEPLATE_TYPE_STACKABLE:
+        raise ValueError('Stackable baseplates are not supported for drawer layouts: pick Light, Full or Skeletonized')
+
+    parentComp = parentOcc.component
+    occurrences = parentComp.occurrences
+    mmToCm = lambda mm: mm / 10.0
+    built = {}
+
+    _frame_drawer(mmToCm(layout['totalWidthMm']), mmToCm(layout['totalDepthMm']))
+
+    totalSteps = len(layout['tiles']) + len(layout['bins'])
+    progress.maximumValue = max(1, totalSteps)
+    stepsDone = 0
+
+    def step(message):
+        nonlocal stepsDone
+        if progress.wasCancelled:
+            raise DrawerBuildCancelled()
+        progress.message = message
+        progress.progressValue = stepsDone
+        stepsDone += 1
+        _refresh_view()  # show the piece that was just added, then let the dialog repaint
+
+    def activateChild(occ):
+        # Same edit context the single-piece builds use; not fatal if Fusion refuses it.
+        try:
+            proxy = occ.createForAssemblyContext(parentOcc)
+            (proxy or occ).activate()
+        except Exception:
+            futil.log(f'drawer: could not activate child component: {traceback.format_exc()}')
+
+    def place(kind, key, name, pieceForm, xMm, yMm, buildFn, inputStateCls):
+        matrix = _translation(mmToCm(xMm), mmToCm(yMm))
+        if (kind, key) in built:
+            occurrences.addExistingComponent(built[(kind, key)], matrix)
+            return
+        occ = occurrences.addNewComponent(matrix)
+        occ.component.name = name
+        activateChild(occ)
+        buildFn(inputStateCls.from_form(pieceForm), occ.component, name)
+        occ.component.attributes.add(GENERATED_FORM_ATTR_GROUP, GENERATED_FORM_ATTR_KIND, kind)
+        occ.component.attributes.add(GENERATED_FORM_ATTR_GROUP, GENERATED_FORM_ATTR_FORM_JSON, json.dumps(pieceForm))
+        # Hide this piece's construction sketches right away so the build can be watched live
+        # without a cluttered viewport (the final pass in create_and_build is then a no-op).
+        _hide_sketches(occ.component)
+        built[(kind, key)] = occ.component
+
+    for index, tile in enumerate(layout['tiles']):
+        paddings = (tile['paddingLeftMm'], tile['paddingRightMm'], tile['paddingFrontMm'], tile['paddingBackMm'])
+        pf = dict(plateForm)
+        pf.update(
+            plateWidth=tile['plateWidth'], plateLength=tile['plateLength'],
+            hasHalfLeft=False, hasHalfFront=False,
+            hasHalfRight=tile['hasHalfRight'], hasHalfBack=tile['hasHalfBack'],
+            stackCount=1,
+            hasSidePadding=any(p > 0 for p in paddings),
+            paddingLeft=mmToCm(tile['paddingLeftMm']), paddingRight=mmToCm(tile['paddingRightMm']),
+            paddingBottom=mmToCm(tile['paddingFrontMm']), paddingTop=mmToCm(tile['paddingBackMm']),
+        )
+        key = (tile['plateWidth'], tile['plateLength'], tile['hasHalfRight'], tile['hasHalfBack']) + tuple(round(p, 3) for p in paddings)
+        step('Baseplate tile {} of {}: {}x{} cells{}'.format(
+            index + 1, len(layout['tiles']), tile['plateWidth'], tile['plateLength'],
+            ' (copying an identical tile)' if ('baseplate', key) in built else ''))
+        place(
+            'baseplate', key,
+            'Gridfinity baseplate {}x{}'.format(tile['plateLength'], tile['plateWidth']),
+            pf,
+            # plate-local origin is the grid origin; padding extends to negative X/Y from it
+            tile['xMm'] + tile['paddingLeftMm'], tile['yMm'] + tile['paddingFrontMm'],
+            build_baseplate, BaseplateInputState,
+        )
+
+    for binIndex, b in enumerate(layout['bins']):
+        bf = dict(binForm)
+        bf.update(
+            binWidth=b['binWidth'], binLength=b['binLength'],
+            hasHalfLeft=False, hasHalfFront=False,
+            hasHalfRight=b['hasHalfRight'], hasHalfBack=b['hasHalfBack'],
+        )
+        if bf.get('compartmentsGridType') == COMPARTMENTS_GRID_TYPE_UNIFORM:
+            # never ask a small bin for more compartments than it has cells
+            bf['compartmentsGridWidth'] = max(1, min(int(bf.get('compartmentsGridWidth', 1)), max(1, b['binWidth'])))
+            bf['compartmentsGridLength'] = max(1, min(int(bf.get('compartmentsGridLength', 1)), max(1, b['binLength'])))
+        key = (b['binWidth'], b['binLength'], b['hasHalfRight'], b['hasHalfBack'])
+        step('Bin {} of {}: {}x{} cells{}'.format(
+            binIndex + 1, len(layout['bins']), b['binWidth'], b['binLength'],
+            ' (copying an identical bin)' if ('bin', key) in built else ''))
+        place(
+            'bin', key,
+            'Gridfinity bin {}x{}x{}'.format(b['binLength'], b['binWidth'], int(bf['binHeight'])),
+            bf, b['xMm'], b['yMm'],
+            build_bin, BinInputState,
+        )
+
+    # leave the parent as the active edit target, like the single-piece builds do
+    try:
+        parentOcc.activate()
+    except Exception:
+        pass
+    _refresh_view()  # show the last piece too
 
 
 def build_baseplate(inputState: BaseplateInputState, component: adsk.fusion.Component, name: str):
