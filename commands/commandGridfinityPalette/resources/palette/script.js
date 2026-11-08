@@ -279,25 +279,15 @@ function renderConfigStatus(tab) {
     document.getElementById(`${tab}-config-update`).disabled = !active;
 }
 
-// The top notification bar sits above the tabs, out of view once the palette is
-// scrolled down to the action buttons -- also render into a second bar local to the
-// active tab (just above its Configurations/Saved sets section, near where Generate/
-// Update Preview/config buttons actually get clicked) so the message is visible
-// without scrolling back up.
-function setNotificationEl(el, type, message) {
+// Single toast, rendered in the bottom-pinned bar so it is always visible.
+let notificationTimer = null;
+function showNotification(type, message) {
+    const el = document.getElementById('notification');
     if (!el) return;
     el.textContent = message;
     el.className = `notification ${type}`;
-    el.classList.remove('hidden');
-    clearTimeout(el._notificationTimer);
-    el._notificationTimer = setTimeout(() => {
-        el.classList.add('hidden');
-    }, 5000);
-}
-
-function showNotification(type, message) {
-    setNotificationEl(document.getElementById('notification'), type, message);
-    setNotificationEl(document.getElementById(`${state.activeTab}-notification`), type, message);
+    clearTimeout(notificationTimer);
+    notificationTimer = setTimeout(() => el.classList.add('hidden'), 5000);
 }
 
 // ---- Modal component (shared overlay for confirm/prompt/picker dialogs) ----
@@ -538,8 +528,8 @@ function renderComputed(tab, computed) {
 }
 
 function updateActionButtons(tab) {
-    const panel = document.getElementById(`tab-${tab}`);
-    panel.querySelectorAll('button[data-action="update_preview"], button[data-action="generate"]').forEach(btn => {
+    // The pinned bar's buttons carry data-tab of whichever tab is active.
+    document.querySelectorAll(`button[data-action="update_preview"][data-tab="${tab}"], button[data-action="generate"][data-tab="${tab}"]`).forEach(btn => {
         btn.disabled = !state.valid[tab];
     });
 }
@@ -1507,7 +1497,26 @@ function setActiveTab(tab) {
     state.activeTab = tab;
     document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${tab}`));
+    // Pinned Update Preview/Generate/Clear Preview act on the active tab (bin/baseplate only).
+    const pinnedActions = document.getElementById('pinned-actions');
+    if (pinnedActions) {
+        const hasPreview = tab === 'bin' || tab === 'baseplate';
+        pinnedActions.classList.toggle('hidden', !hasPreview);
+        if (hasPreview) {
+            pinnedActions.querySelectorAll('button[data-action]').forEach(b => { b.dataset.tab = tab; });
+            updateActionButtons(tab);
+        }
+    }
 }
+
+// Keep page content clear of the fixed pinned bar as its height changes (toast shown/hidden).
+(function trackPinnedBarHeight() {
+    const bar = document.getElementById('pinned-bar');
+    if (!bar || typeof ResizeObserver === 'undefined') return;
+    const update = () => document.documentElement.style.setProperty('--pinned-bar-height', `${bar.offsetHeight}px`);
+    new ResizeObserver(update).observe(bar);
+    update();
+})();
 
 document.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => {

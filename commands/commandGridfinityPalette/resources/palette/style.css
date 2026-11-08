@@ -199,6 +199,8 @@ body {
   background: var(--bg-body);
   color: var(--text-main);
   min-height: 2160px;
+  /* Room for the fixed .pinned-bar; script.js keeps --pinned-bar-height current. */
+  padding-bottom: calc(var(--pinned-bar-height, 120px) + 8px);
 }
 
 /* Form controls don't inherit font-family/font-size from ancestors by default
@@ -405,11 +407,40 @@ input::placeholder {
   margin: 4px 0;
 }
 
+/* Bottom-pinned block: toast, Update Preview / Generate / Clear Preview, title+version. */
+.pinned-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  padding: 8px;
+  background: var(--bg-body);
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.pinned-bar .notification {
+  margin-bottom: 6px;
+}
+
+.pinned-bar .actions {
+  margin-bottom: 0;
+}
+
+.pinned-bar .actions .secondary-btn {
+  background: var(--btn-secondary);
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--border-color);
+}
+
+.pinned-bar .actions .secondary-btn:hover:not(:disabled) {
+  background: var(--btn-secondary-hover);
+}
+
 .version-footer {
   text-align: center;
-  margin-top: 14px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border-color);
+  margin: 6px 0 0;
 }
 
 .field-hint.highlight {

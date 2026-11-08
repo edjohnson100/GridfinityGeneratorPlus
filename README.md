@@ -1,6 +1,6 @@
 # GridfinityGeneratorPlus
 
-Version: 1.7.0.0
+Version: 1.7.1.0
 
 By Ed Johnson (Making With An EdJ)
 
@@ -24,6 +24,15 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 6: Half-unit grid support & DXF export for laser cutting.** Add a half-unit-wide strip to any edge (Left/Right/Front/Back) of a bin or baseplate — where two checked edges meet at a corner, that cell automatically becomes quarter-size, no extra configuration needed. Baseplates can also generate a DXF-ready sketch for laser-cut fabrication.
 
 * **Feature 7: Whole-drawer layouts.** From a Grid Optimizer result, lay out and build a complete drawer in one step: baseplates auto-tiled to your printer bed, plus bins auto-filled or drawn by hand, all as one nested component.
+
+---
+## ✨ What's New in v1.7.1
+
+* **Pinned action bar.** Update Preview, Generate and Clear Preview now sit in a bar pinned to the bottom of the palette, always visible however far you've scrolled. They act on the active tab (Bin or Baseplate). The add-in title and version live in the same bar.
+* **One toast, always visible.** Notifications used to appear twice (a top bar plus a per-tab bar). There is now a single toast in the pinned bar.
+* **Fixed: a just-generated part was treated as a preview again.** After Preview → Generate, the next Update Preview deleted the generated component, and switching Bin/Baseplate showed a spurious "Replace preview?" prompt.
+* **Zero-size bins and baseplates.** A width/length of 0 is accepted when a matching half-unit edge is checked (e.g. a half-size bin).
+* **Too-small compartments are caught.** A compartment grid whose cells are too small to build is now flagged on the Grid width/length fields instead of failing during Generate.
 
 ---
 ## ✨ What's New in v1.7

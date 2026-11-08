@@ -45,7 +45,7 @@ CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'c
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
 
 PALETTE_TITLE = 'GridfinityGeneratorPlus'
-PALETTE_VERSION = 58
+PALETTE_VERSION = 62
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Local list of event handlers for the command button.

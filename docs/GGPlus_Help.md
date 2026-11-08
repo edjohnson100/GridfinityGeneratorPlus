@@ -2,7 +2,7 @@
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
-Version: 1.7.0.0
+Version: 1.7.1.0
 
 By Ed Johnson
 
@@ -262,7 +262,8 @@ A condensed summary of major milestones:
 - **Font controls now reach every element (v1.4.1)** — Font Family/Base Font Size on the Themes tab previously only scaled body text; buttons, dropdowns, and text fields silently kept the browser's default UI font. Fixed fleet-wide with an explicit font inheritance rule for form controls.
 - **Multi-monitor palette visibility fix (v1.4.2)** — Fusion won't draw a floating palette outside the display its own main window occupies, so a palette last parked on a second monitor could go silently invisible when Fusion was later opened on a different one. The saved position is now checked against Fusion's actual display on open and remapped onto it at the same relative spot when they don't match. A new standalone `PaletteDisplayCheck` script reports monitor layout and the saved-position verdict for troubleshooting.
 - **Calmer first launch, remembered sections, tooltips, and UI polish (v1.5)** — most sections start collapsed with live one-line summaries in their headers, open/closed state is remembered, Expand all / Collapse all and auto-open-on-error were added, ⓘ tooltips explain grid units vs. millimetres (and the Grid Optimizer’s settings), Configurations moved to the top of the Bin and Baseplate tabs, Bin gained an Advanced section, dependent fields gray out until their checkbox is on, checkboxes are left-aligned, and baseplate padding labels now use Left/Back/Right/Front.
-- **Whole-drawer layouts, instant Generate and scoop fixes (v1.7)** — the Grid Optimizer can lay out and build a full drawer of baseplates (tiled to your printer bed) and bins (auto-filled or hand-drawn, crossing seams) as one nested component; Generate now just finalizes an unchanged preview instead of rebuilding it; more collapsed-section summaries; and left/right scoops on narrow bins no longer fail.
+- **Whole-drawer layouts, instant Generate and scoop fixes (v1.7)** — the Grid Optimizer can lay out and build a full drawer of baseplates (tiled to your printer bed) and bins (auto-filled or hand-drawn, crossing seams) as one nested component; Generate now just finalizes an unchanged preview instead of rebuilding it; more collapsed-section summaries; and left/right scoops on narrow bins no longer fail.
+- **Pinned action bar & single toast (v1.7.1)** — Update Preview / Generate / Clear Preview and notifications are pinned to the bottom of the palette, and a just-generated part is no longer mistaken for a preview.
 
 ---
 

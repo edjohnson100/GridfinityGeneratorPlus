@@ -113,6 +113,15 @@ def release_preview():
     """Stops tracking the current preview WITHOUT touching the component -- used when a preview
     is promoted to a finished component, so it is no longer treated as a clearable preview."""
     global _preview_tab, _preview_occurrence_token, _preview_feature_tokens, _preview_is_adopted, _preview_original_name
+    # Also forget it in the history -- otherwise resync() (run after every command) would see
+    # the still-existing finished component as a "reappeared" preview and re-track it, so the
+    # next Update Preview would delete it and tab switches would warn about replacing it.
+    releasedOccurrence = _preview_occurrence_token
+    releasedFeatures = _preview_feature_tokens
+    _preview_history[:] = [
+        e for e in _preview_history
+        if not (e['occurrence_token'] == releasedOccurrence and e['feature_tokens'] == releasedFeatures)
+    ]
     _preview_tab = None
     _preview_occurrence_token = None
     _preview_feature_tokens = []

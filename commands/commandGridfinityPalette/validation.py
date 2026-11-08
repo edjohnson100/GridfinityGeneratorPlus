@@ -114,6 +114,27 @@ def validate_bin(form: dict) -> dict:
         computed['compartmentCellLengthMm'] = cellLength
         computed['compartmentCellWidthTooSmall'] = cellWidth < minCompartmentDimensionLimit
         computed['compartmentCellLengthTooSmall'] = cellLength < minCompartmentDimensionLimit
+
+        # Compartments narrower than the corner-fillet limit can't be built (Fusion rejects the
+        # fillet with ASM_BL_BLEND_TOO_BIG), so block generation instead of letting it fail.
+        if generateBody and binType == 'Hollow' and compartmentsGridWidth > 0 and compartmentsGridLength > 0:
+            if compartmentsGridType == 'Custom':
+                cellWidthCm = cellWidth / 10.0
+                cellLengthCm = cellLength / 10.0
+                tooSmallX = any(
+                    int(r.get('w', 0)) * cellWidthCm + (int(r.get('w', 0)) - 1) * wallThickness < minCompartmentDimensionLimit / 10.0
+                    for r in compartments if int(r.get('w', 0)) > 0)
+                tooSmallY = any(
+                    int(r.get('l', 0)) * cellLengthCm + (int(r.get('l', 0)) - 1) * wallThickness < minCompartmentDimensionLimit / 10.0
+                    for r in compartments if int(r.get('l', 0)) > 0)
+            else:
+                tooSmallX = computed['compartmentCellWidthTooSmall']
+                tooSmallY = computed['compartmentCellLengthTooSmall']
+            minMm = round(minCompartmentDimensionLimit, 1)
+            if tooSmallX:
+                fieldErrors['compartmentsGridWidth'] = f'Compartments are too narrow (minimum {minMm} mm): use fewer compartments or a bigger bin'
+            if tooSmallY:
+                fieldErrors['compartmentsGridLength'] = f'Compartments are too short (minimum {minMm} mm): use fewer compartments or a bigger bin'
     except (ZeroDivisionError, ValueError):
         pass
 
