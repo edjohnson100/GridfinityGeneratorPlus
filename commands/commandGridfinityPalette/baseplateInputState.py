@@ -40,6 +40,8 @@ class BaseplateInputState:
     interfaceLayerThickness: float
 
     generateDxfSketch: bool
+    # (col, row) cells cut out of a non-rectangular drawer's plate tile; empty for ordinary plates
+    removedCells: list = None
 
     @staticmethod
     def from_form(form: dict) -> 'BaseplateInputState':
@@ -72,4 +74,5 @@ class BaseplateInputState:
             stackCount=int(form['stackCount']),
             interfaceLayerThickness=float(form['interfaceLayerThickness']),
             generateDxfSketch=bool(form.get('generateDxfSketch', False)),
+            removedCells=form.get('removedCells') or [],
         )

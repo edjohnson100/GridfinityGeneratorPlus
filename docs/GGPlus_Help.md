@@ -2,7 +2,7 @@
 
 **A Fusion add-in designed to make generating, previewing, and revisiting Gridfinity parts fast, intuitive, and future-proof with creation settings that aren't lost to time.**
 
-Version: 1.7.1.0
+Version: 1.8.0.0
 
 By Ed Johnson
 
@@ -42,6 +42,7 @@ If you’ve used the original GridfinityGenerator, here’s what’s different:E
 | Baseplate types | Light, Skeletonized, Full | Adds **Stackable** — a fourth type designed to physically stack |
 | Grid sizing | Manual guesswork for custom (non-42mm) grids | **Grid Optimizer** tab recommends an optimal custom pitch from your real drawer/cabinet measurements |
 | Whole-drawer layout | Not available | **Use this layout** (Grid Optimizer) tiles baseplates to your printer bed and builds a full drawer of baseplates and bins as one component |
+| Non-rectangular drawers | Not available | **Edit drawer shape** removes cells from a drawer; baseplates are cut to fit and bins can be any connected shape (e.g. an L) |
 | Appearance | Fixed light theme | **Themes** tab — built-in themes, OS dark-mode following, and importable custom themes (single `.theme.json` or a multi-theme `style.css` bundle) |
 | Window state | Resets every session | Palette size/position/docking remembered across sessions |
 
@@ -125,10 +126,13 @@ Click any column heading (**Description**, **Width**, or **Depth**) to sort the 
 
 After you Calculate, **Use this layout** turns one opening at a time into a complete set of baseplates and bins.
 
-1. **Grid to use:** the calculated optimum, the standard 42 mm grid, or the **Common Settings grid unit** (handy when you just want to set a grid size and build a drawer; the Common base width and length units must be equal). Pick the opening to lay out.
-2. **Printer bed:** enter the bed width and depth. The baseplate is split into the fewest tiles that fit; half-unit edges go only on outer tiles and leftover space becomes outer padding. The bed is remembered between sessions and saved with each set. An optional **bin printer bed** adds a reference line and a warning for oversized bins (never a limit).
-3. **Bin fill:** one bin per tile, **uniform** bins up to a max size, a **mixed-size list** (e.g. `2x2, 1x1`, always topped up with 1x1), or **Draw bins by hand**. Click **Show tiled layout** to see the schematic (the button becomes **Hide tiled layout**, which clears the view and any hand-drawn bins). With a per-tile panel you can override the fill for one tile. For hand-drawing, click **Add a bin**, click two corner cells, **Save bin**; bins can cross baseplate boundaries. **Fill empty cells with 1x1 bins** completes a layout.
-4. **Build:** **Update Preview** builds the drawer for review and **Generate drawer** finalizes it, as one nested component and one Undo step, with a progress dialog you can cancel. The drawer uses the current Baseplate and Bin tab settings (Light, Full or Skeletonized baseplates; Stackable is not supported). The pieces of a drawer can't be re-opened with Edit Active Component; rebuild the drawer instead.
+1. **What to generate:** the **Generate baseplates** and **Generate bins** checkboxes at the top choose whether the drawer gets baseplates, bins, or both (both use the same drawer shape).
+2. **Grid and printer bed:** pick the grid (the calculated optimum, the standard 42 mm grid, or the **Common Settings grid unit**, whose base width and length must be equal), the opening to lay out, and the printer bed. Baseplates are split into the fewest tiles that fit; half-unit edges go only on the outer tiles and leftover space becomes outer padding. The bed is remembered between sessions and saved with each set. An optional **bin printer bed** adds a reference line and a warning for oversized bins (never a limit).
+3. **Show tiled layout** draws the schematic (the button becomes **Hide tiled layout**, which clears the view and any hand-drawn bins or shape).
+4. **Drawer shape:** **Edit drawer shape** lets you click cells out of (or back into) the drawer to make L-shapes, notches or cut corners; gray cells are outside the drawer. **Reset to rectangle** undoes it. Where the leftover space goes is set here too: **Padding location**, left/right (centered, left, right) and front/back (centered, front, back), applied to the drawer's bounding box. With **Cut removed cells out of larger plates** on, the whole drawer is tiled to the printer bed first and the gray cells are cut out of those plates ("Removed cells" steps before the Final baseplate cut, with rounded corners), giving fewer, bigger baseplates; a tile whose cells end up in separate pieces falls back to plain rectangles. Turn it off to always use plain rectangular plates.
+5. **Bins:** pick the fill: one bin per tile, **uniform** bins up to a max size, a **mixed-size list** (e.g. `2x2, 1x1`, always topped up with 1x1), or **Draw bins by hand**. With a per-tile panel you can override the fill for one tile. To draw by hand, click **Add a bin**, then click the cells that make up the bin (any connected shape, such as an L) or click one corner cell and **Shift+click** the opposite corner to fill a rectangle, then **Save bin**. Bins can cross baseplate boundaries, and **Fill empty cells with 1x1 bins** completes a layout. A shape that isn't a plain rectangle becomes one irregular bin: base, outline walls and one open cavity, with no lip, scoop, label tab or compartments yet (Shelled is built Hollow).
+6. **Drawer details** lists each tile and the Baseplate/Bin settings the drawer will use.
+7. **Build:** **Update Preview** and **Generate drawer** in the pinned bar build the drawer for review and finalize it, as one nested component and one Undo step, with a progress dialog you can cancel. The drawer uses the current Baseplate and Bin tab settings (Light, Full or Skeletonized baseplates; Stackable is not supported). The pieces of a drawer, including irregular bins, can't be re-opened with Edit Active Component; rebuild the drawer instead.
 
 **Send opening to Baseplate tab** fills the Baseplate form for a single opening instead (forced to Light, stack count 1).
 
@@ -264,6 +268,7 @@ A condensed summary of major milestones:
 - **Calmer first launch, remembered sections, tooltips, and UI polish (v1.5)** — most sections start collapsed with live one-line summaries in their headers, open/closed state is remembered, Expand all / Collapse all and auto-open-on-error were added, ⓘ tooltips explain grid units vs. millimetres (and the Grid Optimizer’s settings), Configurations moved to the top of the Bin and Baseplate tabs, Bin gained an Advanced section, dependent fields gray out until their checkbox is on, checkboxes are left-aligned, and baseplate padding labels now use Left/Back/Right/Front.
 - **Whole-drawer layouts, instant Generate and scoop fixes (v1.7)** — the Grid Optimizer can lay out and build a full drawer of baseplates (tiled to your printer bed) and bins (auto-filled or hand-drawn, crossing seams) as one nested component; Generate now just finalizes an unchanged preview instead of rebuilding it; more collapsed-section summaries; and left/right scoops on narrow bins no longer fail.
 - **Pinned action bar & single toast (v1.7.1)** — Update Preview / Generate / Clear Preview and notifications are pinned to the bottom of the palette, and a just-generated part is no longer mistaken for a preview.
+- **Non-rectangular drawers (v1.8)** — drawers can be any rectilinear shape: click cells out of the drawer, choose where padding goes, build baseplates and bins independently, cut the missing cells out of bed-sized baseplates (with rounded corners), and draw bins of any connected shape by clicking cells or Shift+clicking a rectangle. The drawer section was also reorganized into collapsible sub-sections, with its Preview/Generate buttons moved to the pinned bar.
 
 ---
 

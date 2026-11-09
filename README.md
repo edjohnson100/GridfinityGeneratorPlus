@@ -1,6 +1,6 @@
 # GridfinityGeneratorPlus
 
-Version: 1.7.1.0
+Version: 1.8.0.0
 
 By Ed Johnson (Making With An EdJ)
 
@@ -23,7 +23,19 @@ The original GridfinityGenerator add-in is a great parametric bin/baseplate gene
 * **Feature 5: Themes tab.** Customize the palette's appearance — built-in themes, automatic OS dark-mode following, and import/export of your own custom themes as either a single `.theme.json` file or a multi-theme `style.css` bundle.
 * **Feature 6: Half-unit grid support & DXF export for laser cutting.** Add a half-unit-wide strip to any edge (Left/Right/Front/Back) of a bin or baseplate — where two checked edges meet at a corner, that cell automatically becomes quarter-size, no extra configuration needed. Baseplates can also generate a DXF-ready sketch for laser-cut fabrication.
 
-* **Feature 7: Whole-drawer layouts.** From a Grid Optimizer result, lay out and build a complete drawer in one step: baseplates auto-tiled to your printer bed, plus bins auto-filled or drawn by hand, all as one nested component.
+* **Feature 7: Whole-drawer layouts.** From a Grid Optimizer result, lay out and build a complete drawer in one step: baseplates auto-tiled to your printer bed, plus bins auto-filled or drawn by hand, all as one nested component. Drawers can be non-rectangular (L-shapes, notches), with baseplates cut to fit and bins of any connected shape.
+
+---
+## ✨ What's New in v1.8
+
+* **Non-rectangular drawers.** In **Use this layout**, **Edit drawer shape** lets you click cells out of the drawer (L-shapes, notches, cut corners). The shape is saved with each set, and **Reset to rectangle** puts it back.
+* **Fewer, bigger baseplates.** Baseplates are tiled to your printer bed over the whole drawer first, and the cells that aren't part of the drawer are then cut out of those plates ("Removed cells" steps just before the Final baseplate cut). The new cut edges sit on the cell seams with rounded inside and outside corners. A tile whose cells end up in separate pieces falls back to plain rectangles, and an option turns cut-outs off.
+* **Independent baseplates and bins.** **Generate baseplates** and **Generate bins** checkboxes (top of the section) build either or both, from the same shape.
+* **Padding location.** Choose where leftover space goes: centered, left or right, and centered, front or back.
+* **Draw bins by hand, any shape.** Click cells to build a bin of any connected shape (such as an L) that becomes one irregular bin, or click one corner and **Shift+click** the opposite corner to fill a rectangle. Irregular bins are a base-and-walls outline with one open cavity (no lip, scoop, label tab or compartments yet; Shelled is built Hollow), and they can't be re-opened with Edit Active Component.
+* **A calmer drawer section.** Grid and printer bed, Drawer shape, Bins and Drawer details are now collapsible sub-sections that open when you need them, and **Update Preview / Generate drawer / Clear Preview** live in the pinned bar like the other tabs.
+* **Smarter plate grouping** for shaped drawers: plates are regrouped and merged where that avoids tiny pieces.
+* **Fixed:** an error logged when changing the theme with the Themes tab active.
 
 ---
 ## ✨ What's New in v1.7.1

@@ -45,7 +45,7 @@ CONFIG_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'c
 UI_DEFAULTS_CONFIG_PATH = os.path.join(CONFIG_FOLDER_PATH, 'ui_defaults.json')
 
 PALETTE_TITLE = 'GridfinityGeneratorPlus'
-PALETTE_VERSION = 62
+PALETTE_VERSION = 69
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Local list of event handlers for the command button.
@@ -135,6 +135,12 @@ DEFAULT_OPTIMIZER = {
     'tileBinSettings': {},
     'binPalette': '2x2, 1x1',
     'customBins': [],
+    'drawerMask': None,
+    'generatePlates': True,
+    'generateBins': True,
+    'padAlignX': 'center',
+    'padAlignY': 'center',
+    'cutPlateCells': True,
     'items': [],
 }
 
@@ -692,6 +698,12 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                         tile_bin_settings=data.get('tileBinSettings'),
                         bin_palette=data.get('binPalette', ''),
                         custom_bins=data.get('customBins'),
+                        mask=data.get('mask'),
+                        generate_plates=data.get('generatePlates', True),
+                        generate_bins=data.get('generateBins', True),
+                        pad_align_x=data.get('padAlignX', 'center'),
+                        pad_align_y=data.get('padAlignY', 'center'),
+                        cut_cells=data.get('cutPlateCells', True),
                     )
                     _send(palette, 'layout_result', result)
                 except Exception:
@@ -699,6 +711,8 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                     _send(palette, 'notification', {'type': 'error', 'message': getErrorMessage()})
 
             elif action == 'validate':
+                if tab not in VALIDATE_BY_TAB:
+                    return  # e.g. the Themes tab has nothing to validate
                 result = VALIDATE_BY_TAB[tab](form)
                 _send(palette, 'validation_result', {
                     'tab': tab,
@@ -940,7 +954,8 @@ class HTMLEventHandler(adsk.core.HTMLEventHandler):
                     'message': f'Fix the highlighted fields on the {tabName.capitalize()} tab first',
                 })
                 return
-        if form['baseplate'].get('plateType') == generation.BASEPLATE_TYPE_STACKABLE:
+        if (form['layoutParams'].get('generatePlates', True)
+                and form['baseplate'].get('plateType') == generation.BASEPLATE_TYPE_STACKABLE):
             _send(palette, 'notification', {
                 'type': 'error',
                 'message': 'Drawer layouts do not support Stackable baseplates. Set the Baseplate tab type to Light, Full or Skeletonized.',

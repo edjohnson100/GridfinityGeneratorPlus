@@ -2,14 +2,14 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <link rel="stylesheet" href="style.css?v=22">
+  <link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
   <div id="app">
     <div class="header">
       <div>
         <h2>GridfinityGeneratorPlus</h2>
-        <div id="versionTag" class="sub-header">v1.7.1.0</div>
+        <div id="versionTag" class="sub-header">v1.8.0.0</div>
       </div>
       <select id="theme.name" style="width: auto; height: 28px; font-size: calc(var(--font-size-base) - 1px); padding: 2px 5px;">
         <option value="System">System (Default)</option>
@@ -362,85 +362,120 @@
       <div id="optimizer-results" class="computed hidden">
         <details class="section" open>
           <summary>Use this layout</summary>
-          <label>Grid to use
-            <select id="optimizer.layoutGrid">
-              <option value="optimized">Calculated optimum</option>
-              <option value="standard">Standard 42 mm grid</option>
-              <option value="common">Common Settings grid unit</option>
-            </select>
-          </label>
-          <label>Printer bed width (mm) <input type="number" step="1" min="1" id="optimizer.bedWidth"></label>
-          <span class="field-error" data-error-for="bedWidth"></span>
-          <label>Printer bed depth (mm) <input type="number" step="1" min="1" id="optimizer.bedDepth"></label>
-          <span class="field-error" data-error-for="bedDepth"></span>
-          <label>Bin printer bed width (mm) <span class="info-icon" tabindex="0" role="img" aria-label="Info">&#9432;<span class="tooltip">Optional. If you print bins on a different (e.g. larger) printer than the baseplates, enter its bed here. It is only used for the bin size reference and warning below; it never limits the layout. Leave blank to use the baseplate printer bed.</span></span> <input type="number" step="1" min="1" id="optimizer.binBedWidth"></label>
-          <span class="field-error" data-error-for="binBedWidth"></span>
-          <label>Bin printer bed depth (mm) <input type="number" step="1" min="1" id="optimizer.binBedDepth"></label>
-          <span class="field-error" data-error-for="binBedDepth"></span>
-          <div id="optimizer-layout-summary" class="field-hint"></div>
-          <div class="actions">
-            <button type="button" id="optimizer-apply-common">Apply grid size to Common Settings</button>
-          </div>
-          <label>Opening
-            <select id="optimizer-opening"></select>
-          </label>
-          <div class="actions">
-            <button type="button" id="optimizer-send-baseplate">Send opening to Baseplate tab</button>
-          </div>
-          <label>Bin fill
-            <select id="optimizer.binStrategy">
-              <option value="perTile">One bin per baseplate tile</option>
-              <option value="uniform">Uniform bins (max size below)</option>
-              <option value="palette">Mixed sizes (bin size list below)</option>
-              <option value="custom">Draw bins by hand</option>
-            </select>
-          </label>
-          <label class="wide-field">Bin sizes (cells, width x depth)
-            <span class="info-icon" tabindex="0" role="img" aria-label="Info">&#9432;<span class="tooltip">Used by "Mixed sizes". Comma-separated sizes like 3x2, 2x2, 2x1. Each tile is filled with the largest sizes that fit, trying different orders to use as few bins as possible. 1x1 is always available, and sizes can be rotated.</span></span>
-            <input type="text" id="optimizer.binPalette" placeholder="3x2, 2x2, 1x1">
-          </label>
-          <span class="field-error" data-error-for="binPalette"></span>
-          <label>Max bin width (cells) <input type="number" step="1" min="1" id="optimizer.maxBinCellsWidth"></label>
-          <label>Max bin depth (cells) <input type="number" step="1" min="1" id="optimizer.maxBinCellsDepth"></label>
-          <div class="field-hint" id="optimizer-fill-hint"></div>
+          <label><input type="checkbox" id="optimizer.generatePlates" checked> Generate baseplates</label>
+          <label><input type="checkbox" id="optimizer.generateBins" checked> Generate bins</label>
+
+          <details class="section" open>
+            <summary>Grid and printer bed</summary>
+            <label>Grid to use
+              <select id="optimizer.layoutGrid">
+                <option value="optimized">Calculated optimum</option>
+                <option value="standard">Standard 42 mm grid</option>
+                <option value="common">Common Settings grid unit</option>
+              </select>
+            </label>
+            <label>Printer bed width (mm) <input type="number" step="1" min="1" id="optimizer.bedWidth"></label>
+            <span class="field-error" data-error-for="bedWidth"></span>
+            <label>Printer bed depth (mm) <input type="number" step="1" min="1" id="optimizer.bedDepth"></label>
+            <span class="field-error" data-error-for="bedDepth"></span>
+            <label>Bin printer bed width (mm) <span class="info-icon" tabindex="0" role="img" aria-label="Info">&#9432;<span class="tooltip">Optional. If you print bins on a different (e.g. larger) printer than the baseplates, enter its bed here. It is only used for the bin size reference and warning below; it never limits the layout. Leave blank to use the baseplate printer bed.</span></span> <input type="number" step="1" min="1" id="optimizer.binBedWidth"></label>
+            <span class="field-error" data-error-for="binBedWidth"></span>
+            <label>Bin printer bed depth (mm) <input type="number" step="1" min="1" id="optimizer.binBedDepth"></label>
+            <span class="field-error" data-error-for="binBedDepth"></span>
+            <div id="optimizer-layout-summary" class="field-hint"></div>
+            <div class="actions">
+              <button type="button" id="optimizer-apply-common">Apply grid size to Common Settings</button>
+            </div>
+            <label>Opening
+              <select id="optimizer-opening"></select>
+            </label>
+            <div class="actions">
+              <button type="button" id="optimizer-send-baseplate">Send opening to Baseplate tab</button>
+            </div>
+          </details>
+
           <div class="actions">
             <button type="button" id="optimizer-show-layout">Show tiled layout</button>
           </div>
           <div id="optimizer-layout-schematic"></div>
-          <div id="optimizer-tile-panel" class="hidden">
-            <div id="optimizer-tile-title" class="field-hint"></div>
-            <label>Bin fill for this tile
-              <select id="optimizer-tile-strategy">
-                <option value="">Same as above</option>
-                <option value="perTile">One bin for the whole tile</option>
-                <option value="uniform">Uniform bins (max size below)</option>
-                <option value="palette">Mixed sizes (bin size list above)</option>
+
+          <details class="section" id="optimizer-shape-section">
+            <summary>Drawer shape</summary>
+            <div id="optimizer-shape-panel" class="hidden">
+              <div id="optimizer-shape-status" class="field-hint"></div>
+              <div class="actions">
+                <button type="button" id="optimizer-shape-edit">Edit drawer shape</button>
+                <button type="button" id="optimizer-shape-reset" disabled>Reset to rectangle</button>
+              </div>
+              <label><input type="checkbox" id="optimizer.cutPlateCells" checked> Cut removed cells out of larger plates (fewer, bigger baseplates)</label>
+            </div>
+            <label>Padding location, left / right
+              <select id="optimizer.padAlignX">
+                <option value="center">Centered</option>
+                <option value="start">Left</option>
+                <option value="end">Right</option>
               </select>
             </label>
-            <label>Max bin width (cells) <input type="number" step="1" min="1" id="optimizer-tile-maxw"></label>
-            <label>Max bin depth (cells) <input type="number" step="1" min="1" id="optimizer-tile-maxd"></label>
-          </div>
-          <div class="field-hint" id="optimizer-tile-hint"></div>
-          <div id="optimizer-custom-panel" class="hidden">
-            <div id="optimizer-custom-status" class="field-hint"></div>
-            <div class="actions">
-              <button type="button" id="optimizer-custom-add">Add a bin</button>
-              <button type="button" id="optimizer-custom-save" disabled>Save bin</button>
-              <button type="button" id="optimizer-custom-delete" disabled>Delete selected bin</button>
+            <label>Padding location, front / back
+              <select id="optimizer.padAlignY">
+                <option value="center">Centered</option>
+                <option value="start">Front</option>
+                <option value="end">Back</option>
+              </select>
+            </label>
+          </details>
+
+          <details class="section" id="optimizer-bins-section">
+            <summary>Bins</summary>
+            <label>Bin fill
+              <select id="optimizer.binStrategy">
+                <option value="perTile">One bin per baseplate tile</option>
+                <option value="uniform">Uniform bins (max size below)</option>
+                <option value="palette">Mixed sizes (bin size list below)</option>
+                <option value="custom">Draw bins by hand</option>
+              </select>
+            </label>
+            <label class="wide-field">Bin sizes (cells, width x depth)
+              <span class="info-icon" tabindex="0" role="img" aria-label="Info">&#9432;<span class="tooltip">Used by "Mixed sizes". Comma-separated sizes like 3x2, 2x2, 2x1. Each tile is filled with the largest sizes that fit, trying different orders to use as few bins as possible. 1x1 is always available, and sizes can be rotated.</span></span>
+              <input type="text" id="optimizer.binPalette" placeholder="3x2, 2x2, 1x1">
+            </label>
+            <span class="field-error" data-error-for="binPalette"></span>
+            <label>Max bin width (cells) <input type="number" step="1" min="1" id="optimizer.maxBinCellsWidth"></label>
+            <label>Max bin depth (cells) <input type="number" step="1" min="1" id="optimizer.maxBinCellsDepth"></label>
+            <div class="field-hint" id="optimizer-fill-hint"></div>
+            <div id="optimizer-tile-panel" class="hidden">
+              <div id="optimizer-tile-title" class="field-hint"></div>
+              <label>Bin fill for this tile
+                <select id="optimizer-tile-strategy">
+                  <option value="">Same as above</option>
+                  <option value="perTile">One bin for the whole tile</option>
+                  <option value="uniform">Uniform bins (max size below)</option>
+                  <option value="palette">Mixed sizes (bin size list above)</option>
+                </select>
+              </label>
+              <label>Max bin width (cells) <input type="number" step="1" min="1" id="optimizer-tile-maxw"></label>
+              <label>Max bin depth (cells) <input type="number" step="1" min="1" id="optimizer-tile-maxd"></label>
             </div>
-            <div class="actions">
-              <button type="button" id="optimizer-custom-fill">Fill empty cells with 1x1 bins</button>
-              <button type="button" id="optimizer-custom-clear">Clear drawn bins</button>
+            <div class="field-hint" id="optimizer-tile-hint"></div>
+            <div id="optimizer-custom-panel" class="hidden">
+              <div id="optimizer-custom-status" class="field-hint"></div>
+              <div class="actions">
+                <button type="button" id="optimizer-custom-add">Add a bin</button>
+                <button type="button" id="optimizer-custom-save" class="hidden">Save bin</button>
+              </div>
+              <div class="actions secondary">
+                <button type="button" id="optimizer-custom-delete" disabled>Delete selected bin</button>
+                <button type="button" id="optimizer-custom-fill">Fill empty cells with 1x1 bins</button>
+                <button type="button" id="optimizer-custom-clear">Clear drawn bins</button>
+              </div>
             </div>
-          </div>
-          <div id="optimizer-layout-details" class="field-hint"></div>
-          <div id="optimizer-drawer-settings" class="field-hint"></div>
-          <div class="actions">
-            <button type="button" id="optimizer-drawer-preview">Update Preview (drawer)</button>
-            <button type="button" id="optimizer-drawer-generate">Generate drawer</button>
-            <button type="button" id="optimizer-drawer-clear" class="clear-preview-button" disabled>Clear Preview</button>
-          </div>
-          <div class="field-hint">Sets the grid size, plate size, half-size edges and side padding. It does not generate anything: review the Baseplate tab, then Update Preview.</div>
+          </details>
+
+          <details class="section" id="optimizer-details-section">
+            <summary>Drawer details</summary>
+            <div id="optimizer-layout-details" class="field-hint"></div>
+            <div id="optimizer-drawer-settings" class="field-hint"></div>
+          </details>
         </details>
         <details class="section" open>
           <summary>Best fit</summary>
@@ -508,7 +543,7 @@
         <button type="button" class="clear-preview-button secondary-btn" data-action="clear_preview" data-tab="bin" disabled>Clear Preview</button>
       </div>
     </div>
-    <div class="field-hint version-footer">GridfinityGeneratorPlus &middot; v1.7.1.0, November 2026</div>
+    <div class="field-hint version-footer">GridfinityGeneratorPlus &middot; v1.8.0.0, November 2026</div>
   </div>
 
   <div id="modal-overlay" class="modal-overlay hidden">
@@ -522,6 +557,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=44"></script>
+  <script src="script.js?v=51"></script>
 </body>
 </html>

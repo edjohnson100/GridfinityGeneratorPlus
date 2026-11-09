@@ -3,9 +3,65 @@ import adsk.core, adsk.fusion, traceback
 import copy
 import os
 
-from . import const, commonUtils, filletUtils, combineUtils, faceUtils, extrudeUtils, sketchUtils, baseGenerator, patternUtils, shapeUtils, geometryUtils, gridSlicing
+from . import const, commonUtils, filletUtils, combineUtils, faceUtils, extrudeUtils, sketchUtils, baseGenerator, patternUtils, shapeUtils, geometryUtils, gridSlicing, cellShape
 from .baseGeneratorInput import BaseGeneratorInput
 from .baseplateGeneratorInput import BaseplateGeneratorInput
+
+def _filletRemovedCellCorners(input, body, trueWidth, trueLength, targetComponent):
+    """Rounds the vertical corners that cutting removedCells out of a plate leaves behind, outside
+    (convex) and inside (concave) alike, at the plate's own outer-corner radius. Each set is its own
+    fillet and never fails the plate: if Fusion rejects one, those corners just stay sharp."""
+    try:
+        c = input.xyClearance
+        cols = input.baseplateWidth + (1 if input.hasHalfRight else 0)
+        rows = input.baseplateLength + (1 if input.hasHalfBack else 0)
+        gone = {tuple(rc) for rc in input.removedCells}
+
+        def kept(col, row):
+            return 0 <= col < cols and 0 <= row < rows and (col, row) not in gone
+
+        padL = input.paddingLeft if input.hasPadding else 0
+        padR = input.paddingRight if input.hasPadding else 0
+        padF = input.paddingBottom if input.hasPadding else 0
+        padB = input.paddingTop if input.hasPadding else 0
+
+        def vx_coord(v):
+            return -padL if v == 0 else (trueWidth + padR if v == cols else v * input.baseWidth - c)
+
+        def vy_coord(v):
+            return -padF if v == 0 else (trueLength + padB if v == rows else v * input.baseLength - c)
+
+        convex, concave = [], []
+        for vy in range(rows + 1):
+            for vx in range(cols + 1):
+                if vx in (0, cols) and vy in (0, rows):
+                    continue  # the plate's own corners are already rounded
+                count = sum(1 for dx, dy in ((-1, -1), (0, -1), (-1, 0), (0, 0)) if kept(vx + dx, vy + dy))
+                if count == 1:
+                    convex.append((vx_coord(vx), vy_coord(vy)))
+                elif count == 3:
+                    concave.append((vx_coord(vx), vy_coord(vy)))
+        tol = 0.002
+
+        def filletCorners(corners, name):
+            edges = []
+            for edge in body.edges:
+                a, b = edge.startVertex.geometry, edge.endVertex.geometry
+                if abs(a.x - b.x) > tol or abs(a.y - b.y) > tol or abs(a.z - b.z) < tol:
+                    continue  # not a vertical edge
+                if any(abs(a.x - x) < tol and abs(a.y - y) < tol for x, y in corners):
+                    edges.append(edge)
+            if edges:
+                try:
+                    filletUtils.createFillet(edges, input.cornerFilletRadius - c, False, targetComponent).name = name
+                except Exception:
+                    pass  # leave these corners sharp rather than fail the plate
+
+        filletCorners(convex, "Round removed-cell outside corners")
+        filletCorners(concave, "Round removed-cell inside corners")
+    except Exception:
+        pass
+
 
 def createGridfinityBaseplate(input: BaseplateGeneratorInput, targetComponent: adsk.fusion.Component):
     features = targetComponent.features
@@ -440,6 +496,41 @@ def createGridfinityBaseplate(input: BaseplateGeneratorInput, targetComponent: a
         cuttingTools = cuttingTools + list(mirrorConnectionHolesYZ.bodies) + list(mirrorConnectionHolesXZ.bodies) + connectionHoleYToolList + connectionHoleXToolList
 
 
+    if input.removedCells:
+        # Cells removed from the plate (non-rectangular drawer tiles): cut a full-height box per block of
+        # removed cells in the same final cut. The new faces sit exactly on the cell seams (a seam is
+        # xyClearance short of the cell pitch line), and a block on the plate boundary runs out through any
+        # side padding. The convex corners this leaves are filleted right after the cut.
+        c = input.xyClearance
+        cols = input.baseplateWidth + (1 if input.hasHalfRight else 0)
+        rows = input.baseplateLength + (1 if input.hasHalfBack else 0)
+        margin = 0.5
+        padL = input.paddingLeft if input.hasPadding else 0
+        padR = input.paddingRight if input.hasPadding else 0
+        padF = input.paddingBottom if input.hasPadding else 0
+        padB = input.paddingTop if input.hasPadding else 0
+
+        def seam(i, pitch):
+            return i * pitch - c
+
+        removeHeight = const.BIN_BASE_HEIGHT + (input.bottomExtensionHeight if input.hasExtendedBottom else 0) + margin * 2
+        for index, (x0, x1, y0, y1) in enumerate(cellShape.cell_rects([tuple(rc) for rc in input.removedCells])):
+            xLo = -padL - margin if x0 == 0 else seam(x0, input.baseWidth)
+            xHi = baseplateTrueWidth + padR + margin if x1 == cols - 1 else seam(x1 + 1, input.baseWidth)
+            yLo = -padF - margin if y0 == 0 else seam(y0, input.baseLength)
+            yHi = baseplateTrueLength + padB + margin if y1 == rows - 1 else seam(y1 + 1, input.baseLength)
+            removeBox = shapeUtils.simpleBox(
+                targetComponent.xYConstructionPlane,
+                margin,
+                xHi - xLo,
+                yHi - yLo,
+                -removeHeight,
+                geometryUtils.createOffsetPoint(targetComponent.originConstructionPoint.geometry, byX=xLo, byY=yLo),
+                targetComponent,
+            )
+            removeBox.name = "Removed cells {}".format(index + 1)
+            cuttingTools.append(removeBox)
+
     # cut everything
     toolBodies = commonUtils.objectCollectionFromList(cuttingTools)
     finalCut = combineUtils.cutBody(
@@ -448,6 +539,9 @@ def createGridfinityBaseplate(input: BaseplateGeneratorInput, targetComponent: a
         targetComponent,
     )
     finalCut.name = "Final baseplate cut"
+
+    if input.removedCells:
+        _filletRemovedCellCorners(input, binInterfaceBody, baseplateTrueWidth, baseplateTrueLength, targetComponent)
 
     # mid-height construction plane, shared by the Stackable split/mirror step below
     # and the DXF sketch step, both of which need to reference the same plane

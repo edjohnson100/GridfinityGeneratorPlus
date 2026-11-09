@@ -24,6 +24,9 @@ class BaseplateGeneratorInput():
         self.hasHalfRight = False
         self.hasHalfFront = False
         self.hasHalfBack = False
+        # (col, row) cells of the plate grid to cut out of the plate; the half strip on the Right/Back
+        # edge counts as one more column/row. Used for tiles of a non-rectangular drawer.
+        self.removedCells = []
 
     @property
     def baseWidth(self) -> float:

@@ -102,7 +102,7 @@ const state = {
             stackCount: 1, interfaceLayerThickness: 0.04,
         },
         optimizer: {
-            minSize: 3.0, maxSize: 7.5, allowHalfBins: true, compareStandard: false, priority: 'balanced', layoutGrid: 'optimized', bedWidth: 25.6, bedDepth: 25.6, binBedWidth: null, binBedDepth: null, binStrategy: 'perTile', maxBinCellsWidth: 3, maxBinCellsDepth: 3, binPalette: '2x2, 1x1', tileBinSettings: {}, items: [],
+            minSize: 3.0, maxSize: 7.5, allowHalfBins: true, compareStandard: false, priority: 'balanced', layoutGrid: 'optimized', bedWidth: 25.6, bedDepth: 25.6, binBedWidth: null, binBedDepth: null, binStrategy: 'perTile', maxBinCellsWidth: 3, maxBinCellsDepth: 3, binPalette: '2x2, 1x1', tileBinSettings: {}, generatePlates: true, generateBins: true, padAlignX: 'center', padAlignY: 'center', cutPlateCells: true, items: [],
         },
         theme: { name: 'System', fontFamily: '-apple-system, "Segoe UI", Helvetica, Arial, sans-serif', fontSize: 12 },
     },
@@ -446,6 +446,7 @@ function readFormFromDom(tab) {
         form.items = readOptimizerItemsFromDom();
         form.tileBinSettings = JSON.parse(JSON.stringify(tileBinSettings));
         form.customBins = JSON.parse(JSON.stringify(customBins));
+        form.drawerMask = drawerMask ? JSON.parse(JSON.stringify(drawerMask)) : null;
     }
     return form;
 }
@@ -477,6 +478,7 @@ function writeFormToDom(tab, displayForm) {
         // Per-tile bin overrides belong to the saved set; a freshly loaded set invalidates the drawing.
         tileBinSettings = displayForm.tileBinSettings || {};
         customBins = Array.isArray(displayForm.customBins) ? displayForm.customBins : [];
+        drawerMask = Array.isArray(displayForm.drawerMask) ? displayForm.drawerMask : null;
         selectedTileKey = null;
         clearDrawerLayout();
         updateBinFillFieldStates();
@@ -529,6 +531,13 @@ function renderComputed(tab, computed) {
 
 function updateActionButtons(tab) {
     // The pinned bar's buttons carry data-tab of whichever tab is active.
+    if (tab === 'optimizer') {
+        // the drawer can be built once a fit has been calculated
+        const ready = !document.getElementById('optimizer-results').classList.contains('hidden');
+        document.querySelectorAll('#pinned-actions button[data-action="update_preview"], #pinned-actions button[data-action="generate"]')
+            .forEach(btn => { btn.disabled = !ready; });
+        return;
+    }
     document.querySelectorAll(`button[data-action="update_preview"][data-tab="${tab}"], button[data-action="generate"][data-tab="${tab}"]`).forEach(btn => {
         btn.disabled = !state.valid[tab];
     });
@@ -874,12 +883,16 @@ document.getElementById('optimizer-send-baseplate').addEventListener('click', ()
     // Opening width -> plate width (X), depth -> plate length (Y). A half-size strip goes on
     // the right/back edge; leftover is split evenly into side padding so the plate is centered.
     const wasteW = mmToCm(w.wasteMm), wasteD = mmToCm(d.wasteMm);
+    const padX = document.getElementById('optimizer.padAlignX').value;
+    const padY = document.getElementById('optimizer.padAlignY').value;
     state.forms.baseplate = Object.assign({}, state.forms.baseplate, {
         plateWidth: w.full, plateLength: d.full,
         hasHalfLeft: false, hasHalfRight: w.half > 0, hasHalfFront: false, hasHalfBack: d.half > 0,
         hasSidePadding: w.wasteMm > 0 || d.wasteMm > 0,
-        paddingLeft: wasteW / 2, paddingRight: wasteW / 2,
-        paddingTop: wasteD / 2, paddingBottom: wasteD / 2,
+        paddingLeft: padX === 'start' ? wasteW : padX === 'end' ? 0 : wasteW / 2,
+        paddingRight: padX === 'end' ? wasteW : padX === 'start' ? 0 : wasteW / 2,
+        paddingBottom: padY === 'start' ? wasteD : padY === 'end' ? 0 : wasteD / 2,
+        paddingTop: padY === 'end' ? wasteD : padY === 'start' ? 0 : wasteD / 2,
     });
     // Stacked plates can't be laid out as separate tiles, so never leave a stack count > 1 here.
     const warnings = [];
@@ -929,6 +942,12 @@ function currentLayoutParams() {
         maxBinCellsDepth: num('optimizer.maxBinCellsDepth') || 3,
         tileBinSettings: tileBinSettings,
         customBins: customBins,
+        mask: drawerMask,
+        generatePlates: document.getElementById('optimizer.generatePlates').checked,
+        generateBins: document.getElementById('optimizer.generateBins').checked,
+        padAlignX: document.getElementById('optimizer.padAlignX').value,
+        padAlignY: document.getElementById('optimizer.padAlignY').value,
+        cutPlateCells: document.getElementById('optimizer.cutPlateCells').checked,
         binPalette: document.getElementById('optimizer.binPalette').value,
     };
 }
@@ -941,9 +960,61 @@ let selectedTileKey = null;
 // ranges within a tile's cell grid counted from its front-left (a tile's half strip, if any, is one
 // extra half-width last column/row). Saved with the optimizer set; Python validates them.
 let customBins = [];
+
+// Drawer shape ("Edit drawer shape"): null = plain rectangle, otherwise rows x cols booleans over the
+// drawer's cell grid (front row first; a half strip is one extra half-size last column/row). Off cells
+// are outside the drawer. Python (drawerLayout.plan_drawer_layout) turns the on-cells into plate rectangles.
+let drawerMask = null;
+let shapeMode = false;
+
+function maskOn(col, row) {
+    return !drawerMask || !drawerMask[row] || drawerMask[row][col] !== false;
+}
+
+function toggleMaskCell(col, row) {
+    const g = lastDrawerLayout && lastDrawerLayout.shapeGrid;
+    if (!g) {
+        showNotification('error', 'Drawer shape data missing from the layout; restart the add-in');
+        return;
+    }
+    if (!drawerMask) drawerMask = Array.from({ length: g.rows }, () => Array(g.cols).fill(true));
+    drawerMask[row][col] = !drawerMask[row][col];
+    if (drawerMask.every(r => r.every(Boolean))) drawerMask = null;
+    requestLayoutRefresh();
+}
+
+function updateShapePanel() {
+    const panel = document.getElementById('optimizer-shape-panel');
+    panel.classList.toggle('hidden', !lastDrawerLayout);
+    document.getElementById('optimizer-shape-edit').textContent = shapeMode ? 'Done editing shape' : 'Edit drawer shape';
+    document.getElementById('optimizer-shape-reset').disabled = !drawerMask;
+    document.getElementById('optimizer-shape-status').textContent = shapeMode
+        ? 'Click cells to take them out of (or put them back into) the drawer. Gray cells are outside the drawer.'
+        : (drawerMask ? (document.getElementById('optimizer.cutPlateCells').checked
+            ? 'Non-rectangular drawer: bed-sized baseplates with the gray cells cut out of them (a tile whose cells end up in separate pieces falls back to plain rectangles).'
+            : 'Non-rectangular drawer: baseplates are split into plain rectangles over the cells that are on.')
+            : 'Rectangular drawer.');
+}
+
+document.getElementById('optimizer-shape-edit').addEventListener('click', () => {
+    if (!lastDrawerLayout) return;
+    shapeMode = !shapeMode;
+    if (shapeMode) openSectionQuietly('optimizer-shape-section');
+    drawMode = false; drawAnchor = null; drawSel = null; selectedCustomIndex = null;
+    renderDrawerLayout(lastDrawerLayout);
+});
+
+document.getElementById('optimizer-shape-reset').addEventListener('click', () => {
+    drawerMask = null;
+    requestLayoutRefresh();
+});
+
+['optimizer.generatePlates', 'optimizer.generateBins', 'optimizer.cutPlateCells', 'optimizer.padAlignX', 'optimizer.padAlignY'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => { if (lastDrawerLayout) requestLayoutRefresh(); });
+});
 let drawMode = false;          // "Add a bin" is active: clicks on cells build a selection
-let drawAnchor = null;         // first clicked cell {tile, col, row}
-let drawSel = null;            // current rectangle {tile, x0, x1, y0, y1}, waiting for "Save bin"
+let drawAnchor = null;         // last cell clicked into the selection {col, row}; Shift+click fills a rectangle from it
+let drawSel = null;            // cells picked so far {cells: [[col, row], ...]}, waiting for "Save bin"
 let selectedCustomIndex = null; // a drawn bin picked (outside draw mode) for deletion
 let lastDrawerLayout = null;   // latest layout_result, used to hit-test cells and bins
 
@@ -979,6 +1050,16 @@ function emptyCellCount() {
     return grid ? grid.uncovered.length : 0;
 }
 
+function openSectionQuietly(id) {
+    // open a section for the user without saving that as their own open/closed choice
+    const d = document.getElementById(id);
+    if (d && !d.open) {
+        applyingSectionState = true;
+        d.open = true;
+        setTimeout(() => { applyingSectionState = false; }, 0);
+    }
+}
+
 function updateCustomPanel() {
     const active = customModeActive();
     document.getElementById('optimizer-custom-panel').classList.toggle('hidden', !active);
@@ -986,58 +1067,106 @@ function updateCustomPanel() {
         drawMode = false; drawAnchor = null; drawSel = null; selectedCustomIndex = null;
         return;
     }
+    if (lastDrawerLayout && drawMode) openSectionQuietly('optimizer-bins-section');
     // per-tile fill settings don't apply while hand-drawing on the drawer-wide grid
     document.getElementById('optimizer-tile-panel').classList.add('hidden');
     selectedTileKey = null;
     document.getElementById('optimizer-custom-add').textContent = drawMode ? 'Done adding bins' : 'Add a bin';
-    document.getElementById('optimizer-custom-save').disabled = !drawSel;
+    // Save bin only appears once cells are picked
+    document.getElementById('optimizer-custom-save').classList.toggle('hidden', !(drawSel && drawSel.cells.length));
     document.getElementById('optimizer-custom-delete').disabled = selectedCustomIndex === null || drawMode;
     document.getElementById('optimizer-custom-fill').disabled = !lastDrawerLayout || emptyCellCount() === 0;
     let status;
     if (!lastDrawerLayout) status = 'Click "Show tiled layout" first, then Add a bin.';
-    else if (drawMode) status = drawSel
-        ? 'Click another cell to resize the selection, or Save bin.'
-        : 'Click one corner cell of the bin, then the opposite corner cell (one cell is fine), then Save bin. Bins can cross baseplate tile boundaries.';
+    else if (drawMode) status = drawSel && drawSel.cells.length
+        ? `${drawSel.cells.length} cell(s) selected. Click cells to add or remove them, or Shift+click to fill a rectangle from the last cell. The cells must touch edge to edge and not enclose a gap. Then Save bin.`
+        : 'Click the cells that make up the bin (any connected shape, such as an L), or click one corner and Shift+click the opposite corner to fill a rectangle. Then Save bin. Bins can cross baseplate tile boundaries.';
     else status = 'Add a bin to draw one, or click a drawn bin in the drawing to select it.';
     if (lastDrawerLayout) status += ` ${emptyCellCount()} empty cell(s) have no bin yet.`;
     document.getElementById('optimizer-custom-status').textContent = status;
 }
 
+// The cells a drawn bin covers: its own cell list when irregular, otherwise its whole rectangle.
+function drawnBinCells(b) {
+    if (b.shapeCells) return b.shapeCells.map(c => [b.cx0 + c[0], b.cy0 + c[1]]);
+    const cells = [];
+    for (let r = b.cy0; r <= b.cy1; r++) for (let c = b.cx0; c <= b.cx1; c++) cells.push([c, r]);
+    return cells;
+}
+
 function cellInDrawnBin(col, row) {
     return lastDrawerLayout.bins.some(b => b.customIndex !== undefined &&
-        col >= b.cx0 && col <= b.cx1 && row >= b.cy0 && row <= b.cy1);
+        drawnBinCells(b).some(c => c[0] === col && c[1] === row));
 }
 
-function rectOverlapsDrawnBin(sel) {
-    for (let r = sel.y0; r <= sel.y1; r++) {
-        for (let c = sel.x0; c <= sel.x1; c++) {
-            if (cellInDrawnBin(c, r)) return true;
+// Why a set of cells can't be one bin ('' when fine). Mirrors drawerLayout.shape_problem in Python.
+function cellShapeProblem(cells) {
+    const key = (x, y) => `${x},${y}`;
+    const set = new Set(cells.map(c => key(c[0], c[1])));
+    if (!set.size) return 'empty';
+    const seen = new Set([key(cells[0][0], cells[0][1])]);
+    const stack = [[cells[0][0], cells[0][1]]];
+    while (stack.length) {
+        const [x, y] = stack.pop();
+        [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]].forEach(([nx, ny]) => {
+            if (set.has(key(nx, ny)) && !seen.has(key(nx, ny))) { seen.add(key(nx, ny)); stack.push([nx, ny]); }
+        });
+    }
+    if (seen.size !== set.size) return 'The cells must touch edge to edge';
+    const xs = cells.map(c => c[0]), ys = cells.map(c => c[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    for (let y = y0 - 1; y <= y1; y++) {
+        for (let x = x0 - 1; x <= x1; x++) {
+            const a = set.has(key(x, y)), b = set.has(key(x + 1, y)), c = set.has(key(x, y + 1)), d = set.has(key(x + 1, y + 1));
+            if ((a && d && !b && !c) || (b && c && !a && !d)) return 'Cells that only touch at a corner are not connected';
         }
     }
-    return false;
+    const outside = new Set([key(x0 - 1, y0 - 1)]);
+    const st = [[x0 - 1, y0 - 1]];
+    while (st.length) {
+        const [x, y] = st.pop();
+        [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]].forEach(([nx, ny]) => {
+            if (nx >= x0 - 1 && nx <= x1 + 1 && ny >= y0 - 1 && ny <= y1 + 1 && !set.has(key(nx, ny)) && !outside.has(key(nx, ny))) {
+                outside.add(key(nx, ny)); st.push([nx, ny]);
+            }
+        });
+    }
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        if (!set.has(key(x, y)) && !outside.has(key(x, y))) return 'The bin cannot enclose a gap';
+    }
+    return '';
 }
 
-function onDrawCellClick(col, row) {
+function onDrawCellClick(col, row, shift) {
     if (cellInDrawnBin(col, row)) {
         showNotification('error', 'That cell already belongs to a drawn bin');
         return;
     }
-    if (!drawAnchor) {
-        // first corner: a one-cell selection that the second click can stretch
-        drawAnchor = { col, row };
-        drawSel = { x0: col, x1: col, y0: row, y1: row };
-    } else {
-        const sel = {
-            x0: Math.min(drawAnchor.col, col), x1: Math.max(drawAnchor.col, col),
-            y0: Math.min(drawAnchor.row, row), y1: Math.max(drawAnchor.row, row),
-        };
-        if (rectOverlapsDrawnBin(sel)) {
+    let cells = drawSel ? drawSel.cells.slice() : [];
+    if (shift && drawAnchor) {
+        // Shift+click: add the whole rectangle between the last clicked cell and this one
+        const rectCells = [];
+        for (let r = Math.min(drawAnchor.row, row); r <= Math.max(drawAnchor.row, row); r++) {
+            for (let c = Math.min(drawAnchor.col, col); c <= Math.max(drawAnchor.col, col); c++) rectCells.push([c, r]);
+        }
+        if (rectCells.some(([c, r]) => cellInDrawnBin(c, r))) {
             showNotification('error', 'That area overlaps a bin you already drew');
             return;
         }
-        drawSel = sel;
-        drawAnchor = null;  // the next click starts a new selection
+        if (rectCells.some(([c, r]) => !maskOn(c, r))) {
+            showNotification('error', 'That area includes cells outside the drawer shape');
+            return;
+        }
+        rectCells.forEach(([c, r]) => {
+            if (!cells.some(x => x[0] === c && x[1] === r)) cells.push([c, r]);
+        });
+        drawAnchor = { col, row };
+    } else {
+        const at = cells.findIndex(c => c[0] === col && c[1] === row);
+        if (at >= 0) { cells.splice(at, 1); drawAnchor = null; }
+        else { cells.push([col, row]); drawAnchor = { col, row }; }
     }
+    drawSel = cells.length ? { cells } : null;
     updateCustomPanel();
     renderDrawerLayout(lastDrawerLayout);
 }
@@ -1055,7 +1184,12 @@ document.getElementById('optimizer-custom-add').addEventListener('click', () => 
 
 document.getElementById('optimizer-custom-save').addEventListener('click', () => {
     if (!drawSel) return;
-    customBins.push({ x0: drawSel.x0, x1: drawSel.x1, y0: drawSel.y0, y1: drawSel.y1 });
+    const problem = cellShapeProblem(drawSel.cells);
+    if (problem) {
+        showNotification('error', problem);
+        return;
+    }
+    customBins.push({ cells: drawSel.cells.map(c => [c[0], c[1]]) });
     drawSel = null; drawAnchor = null;
     requestLayoutRefresh();  // Python re-validates; the redraw also refreshes the buttons/status
 });
@@ -1156,12 +1290,13 @@ document.getElementById('optimizer-show-layout').addEventListener('click', async
     if (lastDrawerLayout) {
         // Hide = start over with a clean slate: drop the schematic plus any hand-drawn bins and
         // per-tile fill overrides, which only make sense relative to the layout being shown.
-        const hasWork = (customBins && customBins.length) || Object.keys(tileBinSettings || {}).length;
+        const hasWork = drawerMask || (customBins && customBins.length) || Object.keys(tileBinSettings || {}).length;
         if (hasWork && !(await showConfirmModal(
             'Hide the layout and discard the bins you drew and any per-tile bin settings?',
             { title: 'Hide tiled layout', confirmLabel: 'Hide and reset' }))) return;
         customBins = [];
         tileBinSettings = {};
+        drawerMask = null;
         clearDrawerLayout();
         updateBinFillFieldStates();
         return;
@@ -1173,6 +1308,7 @@ document.getElementById('optimizer-show-layout').addEventListener('click', async
 function syncShowLayoutButton() {
     document.getElementById('optimizer-show-layout').textContent =
         lastDrawerLayout ? 'Hide tiled layout' : 'Show tiled layout';
+    updateSectionSummaries();
 }
 
 // Describes which Baseplate/Bin tab settings the drawer will be built from.
@@ -1206,9 +1342,6 @@ async function requestDrawerBuild(action) {
     sendToFusion(action, { tab: 'optimizer', form: { layoutParams: params, baseplate, bin } });
 }
 
-document.getElementById('optimizer-drawer-preview').addEventListener('click', () => requestDrawerBuild('drawer_preview'));
-document.getElementById('optimizer-drawer-generate').addEventListener('click', () => requestDrawerBuild('drawer_generate'));
-document.getElementById('optimizer-drawer-clear').addEventListener('click', () => sendToFusion('clear_preview', { tab: 'optimizer' }));
 document.getElementById('optimizer-show-layout').addEventListener('click', updateDrawerSettingsSummary);
 document.getElementById('optimizer-send-baseplate').addEventListener('click', updateDrawerSettingsSummary);
 
@@ -1218,6 +1351,8 @@ function clearDrawerLayout() {
     document.getElementById('optimizer-tile-panel').classList.add('hidden');
     selectedTileKey = null;
     lastDrawerLayout = null;
+    shapeMode = false;
+    updateShapePanel();
     drawMode = false; drawAnchor = null; drawSel = null; selectedCustomIndex = null;
     updateCustomPanel();
     syncShowLayoutButton();
@@ -1239,6 +1374,7 @@ function fitsBed(wMm, dMm, bed) {
 
 function renderDrawerLayout(layout) {
     lastDrawerLayout = layout;
+    drawerMask = layout.mask || null;
     // A refreshed layout can invalidate a selection (tiles or bins moved/changed): drop dangling ones.
     if (selectedCustomIndex !== null && !layout.bins.some(b => b.customIndex === selectedCustomIndex)) selectedCustomIndex = null;
     if (drawSel && !layout.customGrid) { drawSel = null; drawAnchor = null; }
@@ -1267,6 +1403,16 @@ function renderDrawerLayout(layout) {
     const oversized = layout.bins.filter(b => binBed.w > 0 && binBed.d > 0 && !fitsBed(b.widthMm, b.depthMm, binBed));
     layout.bins.forEach(b => {
         const tooBig = oversized.includes(b);
+        if (b.shapeCells) {
+            // irregular bin: one rectangle per cell, with the cell seams hidden by the matching stroke
+            b.shapeCells.forEach(c => svg.appendChild(rect(b.xMm + c[0] * layout.pitchMm, b.yMm + c[1] * layout.pitchMm,
+                c[2] * layout.pitchMm, c[3] * layout.pitchMm, {
+                    fill: tooBig ? 'var(--text-danger)' : 'var(--btn-primary)',
+                    'fill-opacity': tooBig ? 0.35 : 0.45,
+                    stroke: 'none',
+                })));
+            return;
+        }
         svg.appendChild(rect(b.xMm, b.yMm, b.widthMm, b.depthMm, {
             fill: tooBig ? 'var(--text-danger)' : 'var(--btn-primary)',
             'fill-opacity': tooBig ? 0.35 : 0.45,
@@ -1274,9 +1420,27 @@ function renderDrawerLayout(layout) {
             'stroke-width': tooBig ? stroke * 2 : stroke,
         }));
     });
+    // Cells outside a non-rectangular drawer (and, while editing the shape, a clickable grid).
+    const sg = layout.shapeGrid;
+    if (sg && (drawerMask || shapeMode)) {
+        const sFullC = sg.cols - (sg.hasHalfX ? 1 : 0), sFullR = sg.rows - (sg.hasHalfY ? 1 : 0);
+        const pitchS = layout.pitchMm;
+        for (let j = 0; j < sg.rows; j++) {
+            for (let i = 0; i < sg.cols; i++) {
+                const on = maskOn(i, j);
+                if (on && !shapeMode) continue;
+                const cell = rect(sg.originXMm + i * pitchS, sg.originYMm + j * pitchS,
+                    i < sFullC ? pitchS : pitchS / 2, j < sFullR ? pitchS : pitchS / 2, on
+                        ? { fill: 'transparent', stroke: 'var(--border-color)', 'stroke-width': stroke * 0.4, cursor: 'pointer' }
+                        : { fill: 'var(--text-sub)', 'fill-opacity': 0.55, stroke: 'var(--text-sub)', 'stroke-width': stroke * 0.5, cursor: shapeMode ? 'pointer' : 'default', 'pointer-events': shapeMode ? 'all' : 'none' });
+                if (shapeMode) cell.addEventListener('click', () => toggleMaskCell(i, j));
+                svg.appendChild(cell);
+            }
+        }
+    }
     // Transparent click targets on top: select a tile to give it its own bin fill. A tile with
     // custom settings gets a heavier outline; the selected tile gets a focus-ring colored one.
-    if (!layout.customGrid) layout.tiles.forEach(t => {
+    if (!layout.customGrid && !shapeMode) layout.tiles.forEach(t => {
         const custom = !!tileBinSettings[t.key];
         const selected = t.key === selectedTileKey;
         const hit = rect(t.xMm, t.yMm, t.widthMm, t.depthMm, {
@@ -1289,6 +1453,7 @@ function renderDrawerLayout(layout) {
         hit.addEventListener('click', () => {
             selectedTileKey = t.key;
             showTilePanel();
+            openSectionQuietly('optimizer-bins-section');
             renderDrawerLayout(layout);
         });
         const title = document.createElementNS(NS, 'title');
@@ -1313,38 +1478,44 @@ function renderDrawerLayout(layout) {
         const spanH = (a, b) => (b - a + 1) * pitch - (b >= fullRows ? pitch / 2 : 0);
         grid.uncovered.forEach(c => svg.appendChild(rect(gx(c.col), gy(c.row), gw(c.col), gh(c.row), {
             fill: 'var(--text-sub)', 'fill-opacity': 0.15, stroke: 'var(--text-sub)',
-            'stroke-width': stroke * 0.6, 'stroke-dasharray': `${stroke * 2} ${stroke * 2}`,
+            'stroke-width': stroke * 0.6, 'stroke-dasharray': `${stroke * 2} ${stroke * 2}`, 'pointer-events': 'none',
         })));
-        if (drawMode) {
+        if (drawMode && !shapeMode) {
             for (let j = 0; j < grid.rows; j++) {
                 for (let i = 0; i < grid.cols; i++) {
+                    if (!maskOn(i, j)) continue;
                     const cell = rect(gx(i), gy(j), gw(i), gh(j), {
                         fill: 'transparent', stroke: 'var(--border-color)', 'stroke-width': stroke * 0.4, cursor: 'crosshair',
                     });
-                    cell.addEventListener('click', () => onDrawCellClick(i, j));
+                    cell.addEventListener('click', e => onDrawCellClick(i, j, e.shiftKey));
                     svg.appendChild(cell);
                 }
             }
-        } else {
+        } else if (!shapeMode) {
             layout.bins.filter(b => b.customIndex !== undefined).forEach(b => {
                 const picked = b.customIndex === selectedCustomIndex;
-                const hit = rect(b.xMm, b.yMm, b.widthMm, b.depthMm, {
-                    fill: picked ? 'var(--focus-ring)' : 'transparent', 'fill-opacity': picked ? 0.3 : 0,
-                    stroke: picked ? 'var(--focus-ring)' : 'none', 'stroke-width': stroke * 3, cursor: 'pointer',
+                const pieces = b.shapeCells
+                    ? b.shapeCells.map(c => [b.xMm + c[0] * pitch, b.yMm + c[1] * pitch, c[2] * pitch, c[3] * pitch])
+                    : [[b.xMm, b.yMm, b.widthMm, b.depthMm]];
+                pieces.forEach(([px, py, pw, ph]) => {
+                    const hit = rect(px, py, pw, ph, {
+                        fill: picked ? 'var(--focus-ring)' : 'transparent', 'fill-opacity': picked ? 0.3 : 0,
+                        stroke: picked ? 'var(--focus-ring)' : 'none', 'stroke-width': stroke * 3, cursor: 'pointer',
+                    });
+                    hit.addEventListener('click', () => {
+                        selectedCustomIndex = b.customIndex;
+                        updateCustomPanel();
+                        renderDrawerLayout(layout);
+                    });
+                    svg.appendChild(hit);
                 });
-                hit.addEventListener('click', () => {
-                    selectedCustomIndex = b.customIndex;
-                    updateCustomPanel();
-                    renderDrawerLayout(layout);
-                });
-                svg.appendChild(hit);
             });
         }
         if (drawSel) {
-            svg.appendChild(rect(gx(drawSel.x0), gy(drawSel.y0), spanW(drawSel.x0, drawSel.x1), spanH(drawSel.y0, drawSel.y1), {
+            drawSel.cells.forEach(([ci, cj]) => svg.appendChild(rect(gx(ci), gy(cj), gw(ci), gh(cj), {
                 fill: 'var(--focus-ring)', 'fill-opacity': 0.35, stroke: 'var(--focus-ring)',
-                'stroke-width': stroke * 3, 'pointer-events': 'none',
-            }));
+                'stroke-width': stroke * 2, 'pointer-events': 'none',
+            })));
         }
     }
     const holder = document.getElementById('optimizer-layout-schematic');
@@ -1369,6 +1540,7 @@ function renderDrawerLayout(layout) {
     details.textContent = '';
     lines.forEach(l => { const p = document.createElement('div'); p.textContent = l; details.appendChild(p); });
     updateCustomPanel();
+    updateShapePanel();
     syncShowLayoutButton();
 }
 
@@ -1378,10 +1550,12 @@ function renderOptimizerResults(payload) {
     if (payload.optimalSizeMm === null || payload.optimalSizeMm === undefined) {
         results.classList.add('hidden');
         lastOptimizerResult = null;
+        updateActionButtons('optimizer');
         return;
     }
     lastOptimizerResult = payload;
     results.classList.remove('hidden');
+    updateActionButtons('optimizer');
 
     const openingSelect = document.getElementById('optimizer-opening');
     const previousOpening = openingSelect.value;
@@ -1500,10 +1674,12 @@ function setActiveTab(tab) {
     // Pinned Update Preview/Generate/Clear Preview act on the active tab (bin/baseplate only).
     const pinnedActions = document.getElementById('pinned-actions');
     if (pinnedActions) {
-        const hasPreview = tab === 'bin' || tab === 'baseplate';
+        const hasPreview = tab === 'bin' || tab === 'baseplate' || tab === 'optimizer';
         pinnedActions.classList.toggle('hidden', !hasPreview);
         if (hasPreview) {
             pinnedActions.querySelectorAll('button[data-action]').forEach(b => { b.dataset.tab = tab; });
+            const gen = pinnedActions.querySelector('button[data-action="generate"]');
+            if (gen) gen.textContent = tab === 'optimizer' ? 'Generate drawer' : 'Generate';
             updateActionButtons(tab);
         }
     }
@@ -1609,6 +1785,11 @@ document.querySelectorAll('button[data-action]').forEach(btn => {
                 if (!ok) return;
             }
             sendToFusion(action, { tab });
+            return;
+        }
+        if (tab === 'optimizer' && (action === 'update_preview' || action === 'generate' || action === 'clear_preview')) {
+            if (action === 'clear_preview') sendToFusion('clear_preview', { tab: 'optimizer' });
+            else requestDrawerBuild(action === 'generate' ? 'drawer_generate' : 'drawer_preview');
             return;
         }
         if (!(await confirmPreviewReplace(action, tab))) return;
@@ -2111,6 +2292,12 @@ const SECTION_SUMMARIES = {
     'tab-baseplate:Magnet cutouts': () => _onOff('baseplate.hasMagnetCutouts'),
     'tab-baseplate:Screw holes': () => _onOff('baseplate.hasScrewHoles'),
     'tab-baseplate:Side padding': () => _onOff('baseplate.hasSidePadding'),
+    'tab-optimizer:Grid and printer bed': () => `${_val('optimizer.bedWidth')}\u00d7${_val('optimizer.bedDepth')} mm bed`,
+    'tab-optimizer:Drawer shape': () => (drawerMask ? 'custom shape' : 'rectangle') + ', padding '
+        + (_val('optimizer.padAlignX') === 'center' && _val('optimizer.padAlignY') === 'center' ? 'centered' : 'offset'),
+    'tab-optimizer:Bins': () => document.getElementById('optimizer.binStrategy').selectedOptions[0].textContent,
+    'tab-optimizer:Drawer details': () => lastDrawerLayout
+        ? `${lastDrawerLayout.tiles.length} plates, ${lastDrawerLayout.bins.length} bins` : 'no layout yet',
     'tab-baseplate:Advanced': () => _val('baseplate.plateType') === 'Skeletonized'
         ? _onOff('baseplate.hasConnectionHoles', null).replace(/^/, 'connection holes ') : 'defaults',
 };

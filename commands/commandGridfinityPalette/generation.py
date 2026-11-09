@@ -14,6 +14,7 @@ from ...lib.gridfinityUtils import const
 from ...lib.gridfinityUtils.baseGenerator import createBaseBodyGrid
 from ...lib.gridfinityUtils.baseGeneratorInput import BaseGeneratorInput
 from ...lib.gridfinityUtils import gridSlicing
+from ...lib.gridfinityUtils.binIrregularGenerator import BinIrregularGeneratorInput, createIrregularBin
 from ...lib.gridfinityUtils.binBodyGenerator import createGridfinityBinBody, uniformCompartments
 from ...lib.gridfinityUtils.binBodyGeneratorInput import BinBodyGeneratorInput, BinBodyCompartmentDefinition
 from ...lib.gridfinityUtils.binBodyTabGeneratorInput import BinBodyTabGeneratorInput
@@ -272,10 +273,16 @@ def _build_drawer(form: dict, parentOcc: adsk.fusion.Occurrence, progress):
         tile_bin_settings=lp.get('tileBinSettings'),
         bin_palette=lp.get('binPalette', ''),
         custom_bins=lp.get('customBins'),
+        mask=lp.get('mask'),
+        generate_plates=lp.get('generatePlates', True),
+        generate_bins=lp.get('generateBins', True),
+        pad_align_x=lp.get('padAlignX', 'center'),
+        pad_align_y=lp.get('padAlignY', 'center'),
+        cut_cells=lp.get('cutPlateCells', True),
     )
     plateForm = form['baseplate']
     binForm = form['bin']
-    if plateForm.get('plateType') == BASEPLATE_TYPE_STACKABLE:
+    if lp.get('generatePlates', True) and plateForm.get('plateType') == BASEPLATE_TYPE_STACKABLE:
         raise ValueError('Stackable baseplates are not supported for drawer layouts: pick Light, Full or Skeletonized')
 
     parentComp = parentOcc.component
@@ -285,7 +292,11 @@ def _build_drawer(form: dict, parentOcc: adsk.fusion.Occurrence, progress):
 
     _frame_drawer(mmToCm(layout['totalWidthMm']), mmToCm(layout['totalDepthMm']))
 
-    totalSteps = len(layout['tiles']) + len(layout['bins'])
+    if not layout['generatePlates'] and not layout['generateBins']:
+        raise ValueError('Turn on Baseplates and/or Bins to generate')
+    plateTiles = layout['tiles'] if layout['generatePlates'] else []
+    binList = layout['bins'] if layout['generateBins'] else []
+    totalSteps = len(plateTiles) + len(binList)
     progress.maximumValue = max(1, totalSteps)
     stepsDone = 0
 
@@ -322,7 +333,7 @@ def _build_drawer(form: dict, parentOcc: adsk.fusion.Occurrence, progress):
         _hide_sketches(occ.component)
         built[(kind, key)] = occ.component
 
-    for index, tile in enumerate(layout['tiles']):
+    for index, tile in enumerate(plateTiles):
         paddings = (tile['paddingLeftMm'], tile['paddingRightMm'], tile['paddingFrontMm'], tile['paddingBackMm'])
         pf = dict(plateForm)
         pf.update(
@@ -330,13 +341,14 @@ def _build_drawer(form: dict, parentOcc: adsk.fusion.Occurrence, progress):
             hasHalfLeft=False, hasHalfFront=False,
             hasHalfRight=tile['hasHalfRight'], hasHalfBack=tile['hasHalfBack'],
             stackCount=1,
+            removedCells=tile.get('removedCells') or [],
             hasSidePadding=any(p > 0 for p in paddings),
             paddingLeft=mmToCm(tile['paddingLeftMm']), paddingRight=mmToCm(tile['paddingRightMm']),
             paddingBottom=mmToCm(tile['paddingFrontMm']), paddingTop=mmToCm(tile['paddingBackMm']),
         )
-        key = (tile['plateWidth'], tile['plateLength'], tile['hasHalfRight'], tile['hasHalfBack']) + tuple(round(p, 3) for p in paddings)
+        key = (tile['plateWidth'], tile['plateLength'], tile['hasHalfRight'], tile['hasHalfBack']) + tuple(round(p, 3) for p in paddings) + (json.dumps(tile.get('removedCells') or []),)
         step('Baseplate tile {} of {}: {}x{} cells{}'.format(
-            index + 1, len(layout['tiles']), tile['plateWidth'], tile['plateLength'],
+            index + 1, len(plateTiles), tile['plateWidth'], tile['plateLength'],
             ' (copying an identical tile)' if ('baseplate', key) in built else ''))
         place(
             'baseplate', key,
@@ -347,7 +359,7 @@ def _build_drawer(form: dict, parentOcc: adsk.fusion.Occurrence, progress):
             build_baseplate, BaseplateInputState,
         )
 
-    for binIndex, b in enumerate(layout['bins']):
+    for binIndex, b in enumerate(binList):
         bf = dict(binForm)
         bf.update(
             binWidth=b['binWidth'], binLength=b['binLength'],
@@ -358,15 +370,24 @@ def _build_drawer(form: dict, parentOcc: adsk.fusion.Occurrence, progress):
             # never ask a small bin for more compartments than it has cells
             bf['compartmentsGridWidth'] = max(1, min(int(bf.get('compartmentsGridWidth', 1)), max(1, b['binWidth'])))
             bf['compartmentsGridLength'] = max(1, min(int(bf.get('compartmentsGridLength', 1)), max(1, b['binLength'])))
+        shapeCells = b.get('shapeCells')
         key = (b['binWidth'], b['binLength'], b['hasHalfRight'], b['hasHalfBack'])
-        step('Bin {} of {}: {}x{} cells{}'.format(
-            binIndex + 1, len(layout['bins']), b['binWidth'], b['binLength'],
-            ' (copying an identical bin)' if ('bin', key) in built else ''))
+        buildFn = build_bin
+        if shapeCells:
+            # irregular (e.g. L-shaped) bin: one outline body, see binIrregularGenerator
+            key = key + (json.dumps(shapeCells),)
+            bf['irregularCells'] = shapeCells
+            buildFn = build_irregular_bin
+        step('Bin {} of {}: {}{}{}'.format(
+            binIndex + 1, len(binList),
+            'irregular, ' + str(len(shapeCells)) + ' cells' if shapeCells else '{}x{} cells'.format(b['binWidth'], b['binLength']),
+            '' , ' (copying an identical bin)' if ('bin', key) in built else ''))
         place(
             'bin', key,
-            'Gridfinity bin {}x{}x{}'.format(b['binLength'], b['binWidth'], int(bf['binHeight'])),
+            ('Gridfinity irregular bin x{}'.format(int(bf['binHeight'])) if shapeCells
+             else 'Gridfinity bin {}x{}x{}'.format(b['binLength'], b['binWidth'], int(bf['binHeight']))),
             bf, b['xMm'], b['yMm'],
-            build_bin, BinInputState,
+            buildFn, BinInputState,
         )
 
     # leave the parent as the active edit target, like the single-piece builds do
@@ -410,10 +431,38 @@ def build_baseplate(inputState: BaseplateInputState, component: adsk.fusion.Comp
     baseplateGeneratorInput.stackCount = inputState.stackCount
     baseplateGeneratorInput.interfaceLayerThickness = inputState.interfaceLayerThickness
     baseplateGeneratorInput.generateDxfSketch = inputState.generateDxfSketch
+    baseplateGeneratorInput.removedCells = [tuple(c) for c in (inputState.removedCells or [])]
 
     baseplateBody = createGridfinityBaseplate(baseplateGeneratorInput, component)
     if not baseplateGeneratorInput.isStackable:
         baseplateBody.name = name
+
+
+def build_irregular_bin(inputState: BinInputState, component: adsk.fusion.Component, name: str):
+    """Irregular bin from inputState.irregularCells (see binIrregularGenerator): outline body, feet and
+    one open cavity. Lip, scoop, label tab and compartment dividers are not supported on these bins,
+    and Shelled bins are built Hollow."""
+    shape = BinIrregularGeneratorInput()
+    shape.cells = [tuple(c) for c in inputState.irregularCells]
+    shape.baseWidth = inputState.baseWidthUnit
+    shape.baseLength = inputState.baseLengthUnit
+    shape.heightUnit = inputState.heightUnit
+    shape.binHeight = inputState.binHeight
+    shape.xyClearance = inputState.xyClearance
+    shape.binCornerFilletRadius = const.BIN_CORNER_FILLET_RADIUS - inputState.xyClearance
+    shape.wallThickness = inputState.wallThickness
+    shape.isSolid = inputState.binType == BIN_TYPE_SOLID
+    shape.generateBase = inputState.generateBase
+    baseInput = BaseGeneratorInput()
+    baseInput.hasScrewHoles = inputState.hasScrewHoles
+    baseInput.hasMagnetCutouts = inputState.hasMagnetCutouts
+    baseInput.hasMagnetCutoutsTabs = inputState.hasMagnetCutoutsTabs
+    baseInput.screwHolesDiameter = inputState.screwDiameter
+    baseInput.magnetCutoutsDiameter = inputState.magnetDiameter
+    baseInput.magnetCutoutsDepth = inputState.magnetDepth
+    shape.baseInput = baseInput
+    body = createIrregularBin(shape, component)
+    body.name = name
 
 
 def build_bin(inputState: BinInputState, component: adsk.fusion.Component, name: str):

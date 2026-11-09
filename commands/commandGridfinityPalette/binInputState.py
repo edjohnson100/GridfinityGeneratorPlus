@@ -57,6 +57,9 @@ class BinInputState:
     magnetDiameter: float
     magnetDepth: float
 
+    # (col, row, width, depth) cells of an irregular drawer bin; empty for ordinary rectangular bins
+    irregularCells: list = None
+
     @staticmethod
     def from_form(form: dict) -> 'BinInputState':
         import math
@@ -109,4 +112,5 @@ class BinInputState:
             hasMagnetCutoutsTabs=bool(form['hasMagnetCutoutsTabs']),
             magnetDiameter=float(form['magnetDiameter']),
             magnetDepth=float(form['magnetDepth']),
+            irregularCells=form.get('irregularCells') or [],
         )
